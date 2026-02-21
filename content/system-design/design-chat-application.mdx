@@ -1,0 +1,143 @@
+---
+title: "Design a Real-Time Chat Application"
+description: "System design for Slack/WhatsApp-style chat: WebSocket management, message ordering, offline support, typing indicators, read receipts, search, and file uploads."
+date: "2026-02-20"
+author: "Frontend Digest"
+audience: ["senior", "architect"]
+tags: ["system-design", "interview", "chat", "real-time"]
+order: 3
+featured: false
+---
+
+Designing a real-time chat application is a classic frontend system design question. It combines WebSocket management, message ordering, optimistic updates, and offline resilience. Here's a structured approach.
+
+## Requirements Clarification
+
+### Functional Requirements
+
+- Display messages in a conversation (chronological order).
+- Send text messages with real-time delivery.
+- Support file uploads (images, documents).
+- Typing indicators when others are typing.
+- Read receipts (seen/delivered).
+- Message search within a conversation or across conversations.
+- Optional: edit/delete, reactions, threads.
+- Offline: queue messages when disconnected; sync when back online.
+
+### Non-Functional Requirements
+
+- **Latency**: Messages appear within ~100ms of send/receive.
+- **Reliability**: Reconnection with exponential backoff; no duplicate messages.
+- **Ordering**: Messages displayed in deterministic order (server timestamp or sequence).
+- **Scalability**: Handle long conversations (10k+ messages) without full load.
+
+## High-Level Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  ChatLayout                                                      │
+│  ┌─────────────┐  ┌────────────────────────────────────────────┐│
+│  │ Conversation│  │ ChatView                                    ││
+│  │ List        │  │  ┌──────────────────────────────────────┐  ││
+│  └─────────────┘  │  │ VirtualizedMessageList                │  ││
+│                   │  │   MessageBubble (text, media, status) │  ││
+│                   │  └──────────────────────────────────────┘  ││
+│                   │  ┌──────────────────────────────────────┐  ││
+│                   │  │ MessageInput (text, file picker)      │  ││
+│                   │  └──────────────────────────────────────┘  ││
+│                   └────────────────────────────────────────────┘│
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │ useChat: WebSocket, message state, mutations, offline queue ││
+│  └─────────────────────────────────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────────┘
+```
+
+Data flow: WebSocket connects → receive messages → merge into local state → send via WebSocket; offline → queue in IndexedDB/localStorage → replay on reconnect.
+
+## Component Design
+
+### ChatView
+
+Composes `VirtualizedMessageList`, `MessageInput`, `TypingIndicator`, and optional `FileUploadProgress`. Manages scroll-to-bottom behavior (auto-scroll on new message unless user scrolled up). Provides channel/conversation context.
+
+### VirtualizedMessageList
+
+Uses `@tanstack/react-virtual` with dynamic heights (messages vary in length). Renders `MessageBubble` for each message. Load older messages when scrolling up (reverse infinite scroll). Key messages by `id` to avoid re-mounting.
+
+### MessageBubble
+
+Renders text (with markdown or links), media thumbnails, timestamp, read receipt icon. Distinguishes own vs. others' messages. Supports edit/delete inline.
+
+### MessageInput
+
+Text input with send button; drag-and-drop or click for file upload. Triggers `onSend` and `onTyping` (debounced). For files: upload first (multipart or presigned URL), then send message with file reference.
+
+### useChat Hook
+
+- WebSocket connection with `useEffect`: connect on mount, disconnect on unmount.
+- Message state: array of messages, keyed by conversation. Merge incoming with existing; deduplicate by `id`.
+- Send: optimistic append with temp `id`; replace with server `id` on confirm.
+- Typing: debounced emit (e.g., every 2s while typing); listen for others' typing.
+- Offline queue: store pending messages in IndexedDB; on reconnect, send in order and reconcile.
+
+```ts
+interface Message {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  content: string;
+  attachments?: { type: string; url: string; name?: string }[];
+  createdAt: string;
+  status: 'sending' | 'sent' | 'delivered' | 'read';
+}
+```
+
+## State Management
+
+- **Messages**: Server + optimistic state. Primary store in TanStack Query or Zustand; merge WebSocket events into it.
+- **Connection status**: `connected | connecting | disconnected | error`.
+- **Typing users**: Map of userId → lastTypingAt; clear after 5s of no event.
+- **Read receipts**: Update message status in place when receipt event arrives.
+- **Offline queue**: Separate store (IndexedDB via idb or Dexie); process FIFO on reconnect.
+
+## API Design
+
+**REST (fallback / sync):**
+```
+GET /api/conversations/:id/messages?before=&limit=50
+POST /api/messages (body: { conversationId, content, attachments[] })
+GET /api/messages/search?q=...&conversationId=
+```
+
+**WebSocket events:**
+```
+→ connect, authenticate
+← message.new, message.updated, message.deleted
+← typing.start, typing.stop
+← receipt.delivered, receipt.read
+→ message.send, typing.start
+```
+
+**File uploads:** `POST /api/upload` (multipart) or get presigned URL from server, upload to S3, then send message with URL.
+
+## Performance Considerations
+
+- **Virtualization**: Critical for 10k+ messages. Render only visible window; load older messages on scroll-up.
+- **Message deduplication**: Use `id` as key; ignore duplicates (e.g., from reconnection replay).
+- **Debounce typing**: Don't emit on every keystroke; every 1–2s is sufficient.
+- **Image lazy loading**: Load images in viewport only; thumbnails for galleries.
+- **Reconnection**: Exponential backoff (1s, 2s, 4s...) with max; persist last received message ID for gap fill on reconnect.
+
+## Accessibility
+
+- **Live region**: Use `aria-live="polite"` to announce new messages for screen readers.
+- **Focus**: Keep focus in input; when new message arrives, optionally move focus or announce without stealing focus.
+- **Keyboard**: Enter to send; Shift+Enter for newline. Escape to cancel compose.
+- **Screen reader order**: Ensure message list and input are in logical DOM order.
+- **File upload**: Accessible file input; announce upload progress.
+
+## Trade-offs and Extensions
+
+**Trade-offs**: WebSocket vs. long polling—WebSocket is lower latency but needs reconnection logic. Optimistic UI improves perceived speed but requires conflict resolution (e.g., if server rejects). Full history load vs. pagination—pagination scales; full load simplifies initial render.
+
+**Extensions**: Add message reactions, threads, voice messages. Implement E2E encryption (encrypt/decrypt client-side). Add presence (online/offline). Rich text editor with @mentions. Push notifications for background tabs.

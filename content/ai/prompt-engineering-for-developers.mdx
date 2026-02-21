@@ -1,0 +1,76 @@
+---
+title: "Prompt Engineering for Developers"
+description: "Master the art of crafting effective prompts for AI coding assistants—from basic principles to advanced patterns for code generation, debugging, and frontend tasks."
+date: "2026-02-20"
+author: "Frontend Digest"
+audience: ["beginner", "senior", "architect"]
+tags: ["ai", "prompts", "productivity"]
+order: 3
+featured: false
+---
+
+## What Is Prompt Engineering
+
+Prompt engineering is the practice of designing inputs (prompts) to large language models (LLMs) to get desired outputs. For developers, it's the difference between "write me a button" (vague, generic result) and "create a reusable React Button component with variants primary, secondary, and ghost; support loading state and disabled; use Tailwind; match our design tokens in tokens.css" (specific, usable result).
+
+It's not magic—it's clarity. LLMs perform best when given explicit instructions, context, and constraints. Learning to articulate what you want in a way models understand is a core skill for the AI-augmented development workflow.
+
+## Principles of Effective Prompts: Specificity, Context, Examples
+
+Three principles consistently improve prompt quality:
+
+**Specificity.** The more precise your request, the better the output. "Create a form" is ambiguous. "Create an accessible React form with name, email, and message fields; client-side validation with Zod; submit handler that posts to /api/contact" narrows the space and yields usable code.
+
+**Context.** Models don't know your codebase, conventions, or constraints. Provide them. "We use React 18, TypeScript, and Tailwind. Our API returns { data, error }. We prefer functional components with hooks." Context reduces hallucination and aligns output with your environment.
+
+**Examples (few-shot).** Show, don't just tell. "Here's our existing Card component [paste example]. Create a similar Table component following the same patterns." One or two examples establish style, structure, and conventions the model can mimic.
+
+## Zero-Shot, Few-Shot, and Chain-of-Thought Prompting
+
+Different prompt strategies suit different tasks:
+
+**Zero-shot.** You ask for something with no examples. Works well for straightforward tasks: "Convert this JSON to TypeScript interfaces." Use when the task is clear and the model has strong prior knowledge.
+
+**Few-shot.** You provide 1–3 examples of input-output pairs. "Here are two API responses [examples]. Generate the TypeScript type for this third response [input]." Few-shot dramatically improves consistency for format-specific or convention-specific tasks.
+
+**Chain-of-thought (CoT).** You ask the model to reason step by step: "Think through this step by step. First, identify the bug. Then, explain why it occurs. Finally, suggest a fix." CoT improves performance on logical, multi-step, or debugging tasks. Explicitly requesting reasoning often yields better final answers.
+
+## Using AI for Code Generation Effectively
+
+AI excels at generating boilerplate, repetitive code, and common patterns. Use it for components, utilities, tests, and configuration—but always review and adapt.
+
+**Iterate.** First output is rarely perfect. Refine: "Add error handling," "Use our custom useAuth hook instead of hardcoded user," "Make it responsive for mobile." Treat the first response as a draft.
+
+**Constrain the scope.** "Generate only the component, no styling" or "Just the types, no implementation" keeps output focused and easier to integrate.
+
+**Verify and test.** AI can introduce subtle bugs—wrong types, missing edge cases, or outdated APIs. Run the code. Write or run tests. Don't ship blindly.
+
+## Using AI for Debugging and Code Review
+
+AI can help diagnose issues and suggest fixes. Paste the error message, relevant code, and context. "This React component re-renders on every parent render. Here's the code [paste]. Why and how do I fix it?"
+
+**Provide full context.** Stack traces, environment details, and what you've already tried help the model avoid suggesting things you've already ruled out.
+
+**Ask for explanation, not just fix.** "Explain why this happens" builds your understanding. "Fix it" might work but leaves you dependent. Understanding + fix is the goal.
+
+**Use AI for code review.** "Review this PR for security issues, performance concerns, and alignment with our React patterns." AI catches common issues; human review catches nuance, business logic, and architectural fit.
+
+## Prompt Patterns for Frontend Tasks
+
+**Component generation.** Specify: framework, styling approach, props/API, accessibility requirements, state (loading, error). Example: "React + Tailwind. Props: items (array), onSelect (callback). Loading skeleton. aria labels. Keyboard nav."
+
+**CSS and layout.** Describe the desired layout: "Flexbox, 3-column grid on desktop, 1 column on mobile. 16px gap. Sticky header." Include design tokens or constraints if relevant.
+
+**Testing.** "Generate Vitest unit tests for this React component. Mock useRouter. Test: renders with props, handles click, shows loading state." Specify test framework and what to cover.
+
+**Refactoring.** "Refactor this to use the Compound Component pattern. Keep the same public API." Paste the original and describe the target pattern.
+
+## Limitations and When Not to Trust AI Output
+
+AI makes mistakes. It can hallucinate APIs, use deprecated patterns, or miss edge cases. Treat it as a helpful assistant, not an oracle.
+
+**Don't trust without verification.** For security-sensitive code, critical paths, or compliance-relevant logic, verify thoroughly. AI suggestions can introduce vulnerabilities.
+
+**Be wary of recency.** Models may not know the latest library versions or recently changed APIs. Check documentation when integrating AI-generated code.
+
+**Recognize when not to use AI.** Complex architectural decisions, nuanced product logic, or domain-specific knowledge often require human judgment. Use AI for acceleration, not replacement of thinking.

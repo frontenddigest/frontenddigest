@@ -1,0 +1,106 @@
+---
+title: "Advanced JavaScript"
+description: "Deep dive into the event loop, async patterns, prototypes, closures, functional programming, and JavaScript gotchas every senior developer should know."
+date: "2026-02-20"
+author: "Frontend Digest"
+audience: ["beginner", "senior"]
+tags: ["javascript", "advanced", "async"]
+order: 4
+featured: false
+---
+
+Once you're comfortable with basics, understanding how JavaScript actually runs—the event loop, prototypes, and async machinery—separates solid engineers from those who cargo-cult solutions. This article covers the concepts that explain *why* JavaScript behaves the way it does.
+
+## The Event Loop and Call Stack
+
+### How JavaScript Executes
+
+JavaScript is single-threaded. The **call stack** holds the currently executing functions. When you call a function, it's pushed onto the stack; when it returns, it's popped. Synchronous code runs to completion before anything else runs.
+
+The **event loop** coordinates the stack with the task queue. When the stack is empty, the event loop takes the next task (callback) from the microtask queue (Promises, queueMicrotask) or macrotask queue (setTimeout, I/O) and runs it. Microtasks run before the next macrotask—understanding this order explains why `Promise.then` runs before `setTimeout` even when both are scheduled.
+
+### Implications for Async Code
+
+Because the stack must be empty before callbacks run, long synchronous work blocks everything—including rendering and user input. Break heavy work into chunks, use `requestIdleCallback` for non-critical tasks, or move work to a Web Worker.
+
+## Promises and async/await
+
+### The Promise Model
+
+A **Promise** represents a future value or failure. It has three states: pending, fulfilled, or rejected. Once settled, it cannot change. `.then()` and `.catch()` return new Promises, enabling chaining. Always return Promises from `.then` callbacks if you want the next `.then` to receive the transformed value.
+
+### async/await as Syntactic Sugar
+
+`async` functions return Promises. `await` pauses the function until the Promise settles, then resumes with the fulfilled value or throws on rejection. Use `try/catch` around await to handle errors. Await only works inside async functions; at the top level you can use top-level await (in modules) or wrap in an async IIFE.
+
+### Error Handling Gotchas
+
+Unhandled Promise rejections don't crash Node by default but can cause subtle bugs. Use `.catch()` or try/catch with await. Remember: `async` functions always return Promises—even when you return a raw value, it gets wrapped.
+
+## Prototypes and the Prototype Chain
+
+### How Inheritance Works
+
+Every object has an internal `[[Prototype]]` link (exposed as `__proto__` in some environments). When you access a property, JavaScript looks on the object, then follows the prototype chain until it finds the property or reaches `null`. `Object.create(proto)` creates an object with a specific prototype.
+
+### Constructor Functions and class
+
+Before `class`, constructors were functions called with `new`. The `class` keyword is syntactic sugar over constructor functions and prototype methods. Under the hood, `extends` sets up the prototype chain. Understanding prototypes helps when debugging, when using `Object.create`, and when interoperating with older libraries.
+
+## Closures in Depth
+
+### What Makes a Closure
+
+A closure is created when a function captures variables from an outer scope. The inner function retains access to those variables even after the outer function has returned. This enables private data, factories, and event handlers that need to "remember" context.
+
+### Practical Uses and Pitfalls
+
+Closures power modules (IIFEs returning objects with methods), memoization, and partial application. The common pitfall: loop variables captured by closures. By the time a callback runs, the loop may have finished—the callback sees the final value. Fix with `let` (block scope per iteration) or by passing the value as a parameter.
+
+## Higher-Order Functions and Functional Patterns
+
+### Functions as Values
+
+Functions are first-class: they can be passed as arguments, returned from other functions, and stored in data structures. **Higher-order functions** take or return functions. Examples: `map`, `filter`, `reduce`, `bind`, and custom utilities like `once`, `debounce`, and `compose`.
+
+### Composition and Immutability
+
+Prefer composing small, pure functions over large imperative blocks. Pure functions have no side effects and same inputs always yield same outputs—they're easier to test and reason about. Avoid mutating inputs; return new data instead.
+
+## Generators and Iterators
+
+### The Iterator Protocol
+
+An object is iterable if it has a `[Symbol.iterator]` method returning an iterator (an object with `next()` that returns `{ value, done }`). `for...of`, spread, and destructuring use this protocol. Arrays, strings, Maps, and Sets are built-in iterables.
+
+### Generator Functions
+
+`function*` and `yield` define generator functions. They return iterators you can step through. Generators enable lazy sequences, custom iteration, and cooperative multitasking (though async/await has largely replaced the latter for async flows).
+
+## WeakMap, WeakSet, and Memory Management
+
+### Why Weak Collections Exist
+
+**WeakMap** and **WeakSet** hold "weak" references—if nothing else references the key (object), the entry can be garbage-collected. Regular Maps and Sets hold strong references, which can cause memory leaks when associating metadata with DOM nodes or caches keyed by objects.
+
+### When to Use Them
+
+Use WeakMap for private data (keyed by `this`), DOM metadata, or caches where keys are objects you don't control. Use WeakSet for tracking which objects have been "seen" without preventing GC.
+
+## Common Gotchas
+
+### this Binding
+
+`this` is determined by how a function is called, not where it's defined. Method calls bind `this` to the object; standalone calls bind to `undefined` (strict mode) or the global object. Arrow functions don't bind `this`—they inherit it. Use `.bind()`, arrow functions, or class fields to fix binding issues.
+
+### Type Coercion
+
+`==` performs type coercion; `===` does not. Prefer `===` to avoid surprises (`"" == 0` is true). Be aware of falsy values: `false`, `0`, `""`, `null`, `undefined`, `NaN`. Explicit checks (`value === null`) are clearer than truthiness when you care about specific types.
+
+### Equality and Reference
+
+`{} === {}` is false—objects are compared by reference. For shallow equality, compare keys and values. For deep equality, use a library like Lodash's `isEqual` or a custom recursive comparison.
+
+---
+
+Mastering these concepts reduces debugging time and helps you write predictable, performant code. The event loop explains async behavior; prototypes clarify OOP; closures and higher-order functions enable elegant abstractions. Study these foundations, and frameworks and patterns will make more sense.

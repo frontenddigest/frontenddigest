@@ -1,0 +1,90 @@
+---
+title: "HTML Fundamentals"
+description: "Document structure, semantic elements, forms, media, links, accessibility basics, and SEO-friendly HTML practices for building solid web pages."
+date: "2026-02-20"
+author: "Frontend Digest"
+audience: ["beginner"]
+tags: ["html", "semantics", "accessibility"]
+order: 5
+featured: false
+---
+
+HTML is the backbone of the web. Writing clean, semantic markup improves accessibility, SEO, and maintainability. This guide covers the essentials every frontend developer needs to structure content correctly from the start.
+
+## Document Structure
+
+### DOCTYPE, html, head, and body
+
+Every HTML document should begin with `<!DOCTYPE html>` to trigger standards mode. The root `<html>` element wraps the entire document and should include a `lang` attribute (e.g., `lang="en"`) for screen readers and search engines.
+
+The `<head>` contains metadata that isn't rendered: character encoding via `<meta charset="UTF-8">`, viewport for responsive design, `<title>`, stylesheet and script links, and meta description. The `<body>` holds the visible content. Keep head lean—critical resources only—to avoid blocking initial render.
+
+### Essential head Elements
+
+Always include charset first (within the first 1024 bytes) so the browser can parse the document correctly. A viewport meta tag (`<meta name="viewport" content="width=device-width, initial-scale=1">`) prevents mobile zoom issues. The `<title>` appears in tabs and search results—make it descriptive and unique per page.
+
+## Semantic HTML Elements
+
+### Landmark Elements
+
+**`<header>`** contains introductory content or nav for a section or page. **`<main>`** wraps the primary content—there should be exactly one per page, and it should not sit inside `<article>`, `<aside>`, `<nav>`, or `<footer>`. **`<nav>`** marks navigation sections (menus, table of contents). Use it for major navigation blocks; not every link group needs to be in nav.
+
+**`<section>`** groups thematically related content, usually with a heading. **`<article>`** is for self-contained, independently distributable content (blog posts, comments, cards). **`<aside>`** holds tangentially related content (sidebars, pull quotes). **`<footer>`** contains footer info for its nearest sectioning ancestor or the body.
+
+### Why Semantics Matter
+
+Semantic elements convey meaning to assistive technologies and search engines. Screen readers use landmarks to let users skip to main content. Using `<main>` instead of `<div id="content">` requires no extra ARIA—the browser understands it. Prefer semantic elements over generic divs when they fit.
+
+## Forms and Input Types
+
+### Form Structure
+
+Wrap inputs in `<form>` with an `action` and `method` for submit behavior. Use `<label>` with `for` matching the input's `id`—clicking the label focuses the input. Group related inputs with `<fieldset>` and `<legend>` for complex forms.
+
+### Input Types and Attributes
+
+Use specific input types: `email`, `tel`, `url`, `number`, `date`, `search`. They provide validation, appropriate keyboards on mobile, and better semantics. Add `placeholder` for hints, `required` for validation, `autocomplete` for better UX. Use `type="submit"` for buttons that submit; `type="button"` for buttons that don't.
+
+## Media Elements
+
+### Images: img, picture, and srcset
+
+`<img>` requires `src` and `alt`. Alt text describes the image for screen readers and when images fail to load—keep it concise and meaningful. For responsive images, use `srcset` and `sizes` to serve different resolutions. `<picture>` with `<source>` elements lets you serve different formats (e.g., WebP for supporting browsers) or art-directed images for different viewports.
+
+### Video and Audio
+
+`<video>` and `<audio>` support multiple `<source>` elements for format fallback. Include `controls` for playback UI. Provide captions with `<track kind="subtitles">` for video. Consider `preload`, `autoplay`, and `muted`—autoplay with sound is often blocked; muted autoplay is typically allowed.
+
+## Links, Anchors, and Navigation
+
+### The href Attribute
+
+`<a href="url">` creates links. Use absolute URLs for external sites; relative URLs for internal navigation. `href="#"` is a placeholder—replace with real destinations or use `button` for in-page actions. Add `rel="noopener noreferrer"` when using `target="_blank"` to prevent tab-nabbing and improve security.
+
+### Anchors and In-Page Navigation
+
+Use `id` on elements and `href="#id"` for in-page links. Ensure IDs are unique. Skip links (`<a href="#main">Skip to content</a>`) at the top help keyboard and screen reader users bypass repeated navigation.
+
+## Accessibility Basics
+
+### ARIA Roles and When to Use Them
+
+ARIA (Accessible Rich Internet Applications) supplements HTML when native semantics aren't enough. Use `role="button"`, `role="tab"`, etc., when building custom widgets. Prefer native elements—`<button>` over `<div role="button">`—because they include keyboard behavior and semantics automatically. Only add ARIA when HTML doesn't suffice.
+
+### Alt Text and Keyboard Navigation
+
+Every image needs meaningful `alt`. Decorative images use `alt=""`. Ensure all interactive elements are focusable and operable via keyboard. Use `tabindex="0"` to add focus to non-focusable elements when necessary; avoid `tabindex` values greater than 0 for normal flow. Visible focus indicators (outline) are critical—don't remove them without providing an alternative.
+
+## SEO-Friendly HTML Practices
+
+### Structure and Headings
+
+Use a single `<h1>` per page for the main topic. Headings should form a logical outline (h1 → h2 → h3) without skipping levels. Search engines and screen readers use headings to understand structure.
+
+### Meta and Semantic Markup
+
+A unique `<title>` and meta description per page help search results. Use semantic elements so crawlers understand content hierarchy. Ensure important content isn't hidden in non-standard ways (e.g., `display: none` for keyword stuffing—search engines may penalize this).
+
+---
+
+Well-structured HTML is the foundation of every web project. Semantic elements, proper forms, and accessibility considerations from the start reduce technical debt and create better experiences for all users.

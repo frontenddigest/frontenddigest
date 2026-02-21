@@ -1,0 +1,130 @@
+---
+title: "CSS Fundamentals"
+description: "Master the core building blocks of CSS: selectors, the box model, specificity, units, colors, typography, positioning, and display—the foundation of web styling."
+date: "2026-02-20"
+author: "Frontend Digest"
+audience: ["beginner"]
+tags: ["css", "styling", "selectors"]
+order: 9
+featured: false
+---
+
+CSS transforms HTML structure into visual design. Before reaching for frameworks or complex layouts, you need solid grounding in selectors, the box model, specificity, units, and core properties. These fundamentals apply everywhere—from vanilla CSS to styled-components to Tailwind.
+
+## Selectors
+
+Selectors target elements for styling. The more specific your selector, the higher its precedence when rules conflict.
+
+### Element, Class, and ID Selectors
+
+**Element selectors** (e.g., `p`, `h1`, `div`) apply to every instance of that tag. Use them for baseline typography or reset styles.
+
+**Class selectors** (e.g., `.card`, `.btn-primary`) target elements by class. Prefer classes over IDs—they're reusable, composable, and avoid specificity wars. Classes are the workhorse of component-based styling.
+
+**ID selectors** (e.g., `#main-nav`) target a single element with that unique ID. IDs have higher specificity than classes and can make overriding difficult. Reserve them for landmarks (skip links, main content) rather than styling.
+
+### Attribute and Pseudo-Selectors
+
+**Attribute selectors** match based on attributes: `[type="text"]`, `[href^="https"]`, `[aria-expanded]`. They're powerful for styling inputs, links, or elements with specific data without extra classes.
+
+**Pseudo-classes** (e.g., `:hover`, `:focus`, `:first-child`, `:nth-of-type(2n)`) style elements in a particular state or position. Use `:focus-visible` for keyboard focus to avoid removing outlines for mouse users.
+
+**Pseudo-elements** (`::before`, `::after`, `::first-line`, `::placeholder`) create virtual elements you can style. They require a `content` property (even `content: ""`) to appear. Great for decorative icons, quotes, or custom list bullets.
+
+## The Box Model
+
+Every block-level element is a rectangular box. Understanding how content, padding, border, and margin interact is essential.
+
+### Content, Padding, Border, Margin
+
+**Content** is the inner area defined by `width` and `height` (when specified). **Padding** sits between content and border; it's inside the element and uses the background. **Border** wraps the padding. **Margin** is outside the border and collapses with adjacent margins vertically.
+
+By default, `width` and `height` refer to the content box only. Adding padding and border increases the total size. **`box-sizing: border-box`** makes `width` and `height` include padding and border—predictable and easier to reason about. Apply it globally: `*, *::before, *::after { box-sizing: border-box; }`.
+
+### Margin Collapse
+
+Block-level elements' vertical margins collapse: the larger of two adjacent margins wins. Inline margins and horizontal block margins do not collapse. Understanding this prevents surprising gaps or lost spacing.
+
+## Specificity and the Cascade
+
+When multiple rules apply to the same element, the cascade resolves conflicts. Rules are ordered by: origin (user agent, user, author), specificity, and source order.
+
+### How Specificity Is Calculated
+
+Specificity uses (a, b, c) where a = inline styles and IDs, b = classes/attributes/pseudo-classes, c = elements/pseudo-elements. `#id .class p` beats `.class p` because of the ID. Avoid IDs and inline styles for routine styling—prefer classes and keep specificity low so overrides stay manageable.
+
+### Source Order and !important
+
+When specificity ties, the last rule wins. `!important` overrides normal cascade but creates maintenance headaches. Use it sparingly (e.g., utility overrides) and document why.
+
+## Units
+
+Different units suit different contexts.
+
+### Absolute and Relative Units
+
+**`px`**—pixels. Fixed size, useful for borders and precise layouts. Not ideal for typography because it doesn't scale with user preferences.
+
+**`em`**—relative to the element's font size. Nested `em` values compound, which can be useful (indentation) or surprising (spacing). Use for properties that should scale with typography.
+
+**`rem`**—relative to the root (`html`) font size. Predictable across the tree. Prefer `rem` for font sizes, spacing, and layout to respect user font scaling.
+
+**`%`**—relative to the parent. Common for widths; for height, the parent must have an explicit height.
+
+**`vh`** and **`vw`**—1% of viewport height and width. Useful for full-height sections or viewport-relative sizing. Watch for mobile quirks when the address bar hides; consider `dvh` (dynamic viewport height) where supported.
+
+## Colors and Backgrounds
+
+### Color Formats
+
+Use **hex** (`#ff6600`) or **rgb**/**rgba** for opacity. **hsl**/**hsla** makes adjusting hue and saturation easier. **Named colors** (`coral`, `rebeccapurple`) are readable but limited. Modern **oklch** offers perceptually uniform color space—better for design systems.
+
+### Background Properties
+
+`background-color`, `background-image`, `background-position`, `background-size`, and `background-repeat` control how backgrounds render. Shorthand `background` resets unspecified values—often best to set properties individually. Use `background-size: cover` for full-bleed images; `contain` to keep the whole image visible.
+
+## Typography
+
+### Font Properties
+
+**`font-family`**—specify a stack: `"Inter", system-ui, sans-serif`. Always end with generic families (`serif`, `sans-serif`, `monospace`).
+
+**`font-size`**—prefer `rem` so users can scale text. Avoid going below ~16px for body copy for accessibility.
+
+**`font-weight`**—`normal` (400) and `bold` (700) are common; numeric values (100–900) give finer control with variable fonts.
+
+**`font-style`**—`normal`, `italic`, `oblique`.
+
+### Line-Height and Text Styling
+
+**`line-height`**—unitless values (e.g., `1.5`) scale with font size. Tighter for headings, looser for body text. Affects readability significantly.
+
+**`letter-spacing`** and **`text-transform`** refine appearance. **`text-decoration`** (`underline`, `none`) and **`text-align`** complete common typographic needs.
+
+## Positioning
+
+**`position: static`**—default. Element flows in normal document order.
+
+**`position: relative`**—keeps normal flow but allows `top`, `right`, `bottom`, `left` to offset. Establishes a positioning context for absolute children.
+
+**`position: absolute`**—removed from flow, positioned relative to nearest positioned ancestor (or viewport). Use for overlays, tooltips, dropdowns.
+
+**`position: fixed`**—positioned relative to the viewport. Good for sticky headers, modals. Watch for stacking context and `transform` creating new containing blocks.
+
+**`position: sticky`**—hybrid: flows normally until a scroll threshold, then sticks. Great for sticky headers, table headers, or "sticky" CTAs. Parent overflow can break it—ensure containing element doesn't clip.
+
+## Display Property
+
+**`block`**—takes full width, stacks vertically. Default for `div`, `p`, `section`.
+
+**`inline`**—flows with text, ignores `width`/`height` and vertical margin. Use for spans, links within text.
+
+**`inline-block`**—flows inline but respects `width`, `height`, and vertical margin. Classic for buttons, icons in text.
+
+**`none`**—removes from flow and hides. Use `visibility: hidden` if you need to preserve layout space.
+
+**`flex`** and **`grid`**—create flex and grid layout contexts. These are covered in depth in the Modern CSS Layout article; they're the primary tools for contemporary interfaces.
+
+---
+
+Master these fundamentals and you'll debug layout issues faster, write more maintainable CSS, and understand how framework abstractions map back to the underlying model. Start with the box model and specificity—they explain most "why isn't this working?" moments.

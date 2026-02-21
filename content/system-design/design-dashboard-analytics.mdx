@@ -1,0 +1,135 @@
+---
+title: "Design an Analytics Dashboard"
+description: "System design for Grafana/Datadog–style dashboards: chart rendering, time range selectors, auto-refresh, responsive grid, widgets, drill-down, and large dataset handling."
+date: "2026-02-20"
+author: "Frontend Digest"
+audience: ["senior", "architect"]
+tags: ["system-design", "interview", "dashboard", "charts"]
+order: 12
+featured: false
+---
+
+Designing an analytics dashboard is a rich frontend system design problem. It involves data visualization, responsive layout, real-time or near-real-time updates, and handling large datasets efficiently. Here's a structured approach.
+
+## Requirements Clarification
+
+### Functional Requirements
+
+- **Widget types**: Line charts, bar charts, pie/donut, heatmaps, tables, stat cards, gauges.
+- **Time range selector**: Preset ranges (1h, 24h, 7d, 30d) and custom date picker; applied across widgets.
+- **Auto-refresh**: Poll at configurable intervals (e.g., every 30s); show last-updated timestamp.
+- **Responsive grid**: Widgets arranged in a draggable/resizable grid; layout persists.
+- **Drill-down**: Click a chart segment (e.g., bar) to filter other widgets or open detail view.
+- **Export**: Export chart as PNG/SVG or data as CSV; optionally export full dashboard.
+- **Loading states**: Skeleton loaders or spinners per widget; avoid full-page block.
+
+### Non-Functional Requirements
+
+- **Performance**: Render 10+ widgets without blocking; charts with 10k+ points must not freeze.
+- **Data efficiency**: Fetch only what's needed for the visible time range; aggregate on server when possible.
+- **Responsiveness**: Layout adapts to mobile (stacked) and desktop (grid).
+- **Accessibility**: Chart data must be accessible (tables, aria-labels); keyboard navigation for controls.
+
+## High-Level Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  DashboardLayout                                                            │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │ Toolbar: TimeRangeSelector | AutoRefreshToggle | ExportButton         │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │ GridLayout (react-grid-layout / CSS Grid)                             │   │
+│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────────┐   │   │
+│  │  │ StatCard    │  │ LineChart   │  │ BarChart                    │   │   │
+│  │  └─────────────┘  └─────────────┘  └─────────────────────────────┘   │   │
+│  │  ┌─────────────────────────────────────┐  ┌─────────────────────┐   │   │
+│  │  │ DataTable (virtualized)              │  │ Heatmap             │   │   │
+│  │  └─────────────────────────────────────┘  └─────────────────────┘   │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │ DashboardContext: timeRange, refreshInterval, globalFilters, drillDown │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+Data flow: User sets time range → all widgets receive new params → fetch data in parallel → render; auto-refresh timer triggers same flow.
+
+## Component Design
+
+### TimeRangeSelector
+
+Dropdown or custom picker for preset ranges plus custom range (two date pickers). Emits `{ start, end }` in ISO or epoch. Sync with URL params for shareable links.
+
+### GridLayout
+
+Uses `react-grid-layout` or similar for drag-and-drop, resize. Each child is a `WidgetCard` wrapper that provides loading skeleton, error state, and chart/table content. Layout config stored as `{ i, x, y, w, h }[]`; persist to API or localStorage.
+
+### ChartWidget (LineChart, BarChart)
+
+Wraps a charting library (Recharts, Chart.js, Visx, or D3). **SVG vs Canvas**: SVG for interactive elements (hover, click for drill-down), easier accessibility; Canvas for 10k+ points (e.g., high-density time series). Consider hybrid: Canvas for drawing, overlay for interactions. Downsample data when points exceed threshold (e.g., 500 visible).
+
+### StatCard
+
+Displays a single metric (number, delta, sparkline). Fetches minimal data; often a single API call per card. Show trend arrow and optional comparison to previous period.
+
+### DataTable
+
+Virtualized table (e.g., `@tanstack/react-virtual`) for large result sets. Supports sorting, optional client-side filtering. Pagination or infinite scroll depending on API design.
+
+```ts
+interface WidgetConfig {
+  id: string;
+  type: 'line' | 'bar' | 'pie' | 'stat' | 'table' | 'heatmap';
+  title: string;
+  queryId: string;
+  options?: Record<string, unknown>;
+}
+
+interface DashboardState {
+  timeRange: { start: string; end: string };
+  refreshInterval: number | null;
+  layout: { i: string; x: number; y: number; w: number; h: number }[];
+  widgets: WidgetConfig[];
+  drillDown?: { widgetId: string; filter: Record<string, unknown> };
+}
+```
+
+## State Management
+
+- **Dashboard config**: Layout, widget list, refresh interval—from API or context.
+- **Time range**: Shared across widgets; single source of truth in context.
+- **Widget data**: Per-widget; use TanStack Query keyed by `[widgetId, timeRange, drillDown]` for caching and deduplication.
+- **Loading/error**: Per-widget; don't block others on single failure.
+- **Drill-down filter**: When user clicks chart, set global filter; widgets re-fetch with filter applied.
+
+## API Design
+
+```
+GET /api/dashboards/:id           → { config, layout, widgets }
+GET /api/query/:queryId?start=&end=&filters=  → { data: DataPoint[] }
+POST /api/dashboards/:id/layout   → save layout
+```
+
+Queries should support time range and optional filters. Return pre-aggregated data when possible (e.g., 5-min buckets for 7-day range). Consider streaming for real-time use cases.
+
+## Performance Considerations
+
+- **Downsampling**: For 100k points, aggregate to 500–1000 for display. Server-side aggregation preferred.
+- **Parallel fetching**: Fetch all widget data in parallel; don't waterfall. Use `Promise.allSettled` to handle partial failures.
+- **Chart rendering**: Canvas for high-density; throttle resize handlers. Memoize chart options.
+- **Virtualization**: Tables and long lists must be virtualized.
+- **Loading skeletons**: Per-widget skeletons avoid layout shift; show stale data while refetching (stale-while-revalidate).
+
+## Accessibility
+
+- **Chart alternatives**: Provide data table view or `aria-label` with summary (e.g., "Line chart showing 10% increase over 7 days"). Use `role="img"` with descriptive `aria-label`.
+- **Keyboard**: Time range selector, refresh toggle, export—all keyboard operable. Focus management for modals (export dialog).
+- **Reduced motion**: Respect `prefers-reduced-motion`; avoid animations that may trigger vestibular issues.
+- **Color**: Don't rely on color alone; use patterns or labels for chart segments. Ensure sufficient contrast.
+
+## Trade-offs and Extensions
+
+**Trade-offs**: SVG vs. Canvas—SVG for interactivity and a11y; Canvas for performance at scale. Client aggregation vs. server—server reduces payload and CPU. Real-time (WebSocket) vs. polling—polling simpler; WebSocket for sub-second updates.
+
+**Extensions**: Add alerting (threshold lines, notifications). Support variables/templates (e.g., `$host` dropdown that filters all widgets). Implement dashboard sharing and permissions. Add annotation overlays (incident markers). Support comparison mode (overlay two time ranges). Implement dashboard versioning for audit.

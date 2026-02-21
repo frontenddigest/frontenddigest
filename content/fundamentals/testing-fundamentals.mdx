@@ -1,0 +1,141 @@
+---
+title: "Testing Fundamentals"
+description: "Learn the testing pyramid, unit testing with Jest/Vitest, Testing Library for React, mocking, integration patterns, E2E with Cypress/Playwright, and TDD workflow."
+date: "2026-02-20"
+author: "Frontend Digest"
+audience: ["beginner", "senior"]
+tags: ["testing", "jest", "cypress", "unit-testing"]
+order: 11
+featured: false
+---
+
+Tests give you confidence to refactor, catch regressions early, and document behavior. But not all tests are equal—unit tests are fast and narrow, E2E tests are slow and broad. Understanding the testing pyramid, choosing the right tools, and writing maintainable tests are skills every frontend engineer needs.
+
+## The Testing Pyramid
+
+The pyramid model balances speed, coverage, and confidence. Many fast unit tests form the base; fewer integration tests in the middle; a handful of slow E2E tests at the top.
+
+### Unit, Integration, and E2E
+
+**Unit tests** isolate a single function, hook, or component. They're fast, numerous, and pinpoint failures. They don't hit the network or DOM unless necessary. Aim for the majority of your tests here.
+
+**Integration tests** verify that multiple units work together—a component plus its data-fetching, a form plus validation logic, a module and its dependencies. They're slower, catch more realistic bugs, but can be brittle if they mock too much.
+
+**E2E tests** run in a real browser against a real (or staged) backend. They validate full user flows: login, add to cart, checkout. They're expensive to run and maintain—use them for critical paths, not exhaustive coverage.
+
+### Applying the Pyramid
+
+Don't chase 100% line coverage with unit tests. Test behavior, not implementation. Write enough unit tests to cover edge cases and business logic; integration tests for component composition; E2E for a few happy paths and critical flows. When tests break, the pyramid helps you know where to look.
+
+## Unit Testing with Jest or Vitest
+
+Jest and Vitest are the dominant JavaScript test runners. Vitest is faster (Vite-native) and Jest-compatible; Jest has broader ecosystem support.
+
+### Structure: Describe, It, Expect
+
+Tests are grouped with `describe` blocks. Individual cases use `it` (or `test`). Assertions use `expect`:
+
+```javascript
+describe('formatCurrency', () => {
+  it('formats positive numbers with two decimals', () => {
+    expect(formatCurrency(42.5)).toBe('$42.50');
+  });
+  it('handles zero', () => {
+    expect(formatCurrency(0)).toBe('$0.00');
+  });
+});
+```
+
+Prefer descriptive test names: "renders error message when API returns 500" over "works". Tests should be readable as documentation.
+
+### Matchers and Async
+
+Use appropriate matchers: `toEqual` for objects (deep equality), `toBe` for primitives and references, `toHaveBeenCalledWith` for mocks. For async code, `async/await` with `expect` or `expect().resolves` / `expect().rejects`. Avoid leaving promises unhandled—always await or return.
+
+## Testing React Components with Testing Library
+
+Testing Library encourages testing from the user's perspective: queries by role, label, or text; interactions via `userEvent` or `fireEvent`. Avoid testing implementation details (state variables, internal methods).
+
+### Rendering and Queries
+
+`render(<Component />)` returns a container and query helpers. Prefer `getByRole`, `getByLabelText`, `getByText`—they align with accessibility. Use `getByTestId` only when semantic queries aren't feasible. `findBy` queries wait for async content; `queryBy` returns null instead of throwing.
+
+### User Interactions
+
+Simulate real interactions: `userEvent.click(button)`, `userEvent.type(input, 'hello')`. These fire events in sequence and respect browser behavior better than `fireEvent` alone. Assert on visible outcomes—"error message appears", "button is disabled"—not on internal state.
+
+## Writing Good Test Assertions
+
+Assertions should be specific and stable. Avoid asserting on implementation (e.g., that a function was called exactly twice) when behavior (e.g., "error is shown") suffices. Implementation-coupled tests break on refactors even when behavior is correct.
+
+**One logical assertion per test** keeps failures focused. If a test checks three things and fails, you still have to debug which one. Split when assertions are independent. Combine when they're steps in a single scenario.
+
+**Test the contract, not the internals.** If you're testing a component, assert on rendered output and side effects. Don't reach into `useState` or private helpers unless you're specifically testing those in isolation.
+
+## Mocking
+
+Mocks isolate the unit under test by replacing dependencies. Use them sparingly—over-mocking makes tests brittle and less valuable.
+
+### Functions, Modules, and API Calls
+
+**`jest.fn()`** or `vi.fn()` creates spy functions. You can assert they were called and with what arguments. Use for callbacks, event handlers, or injected dependencies.
+
+**`jest.mock()`** or `vi.mock()` mocks entire modules. Useful for external services, API clients, or heavy dependencies. Mock at the module level, not per-test, unless you need different behavior per case.
+
+**API calls**: Mock `fetch` or your HTTP client (axios, etc.). Use `MSW` (Mock Service Worker) for more realistic request/response simulation—it intercepts at the network level and works in both tests and browser. MSW avoids mocking the HTTP implementation and lets you share handlers across unit and integration tests.
+
+### When to Mock
+
+Mock external systems (APIs, file system), non-deterministic behavior (dates, random), and expensive operations. Don't mock what you're testing. Don't mock internal modules just to hit a line count—if a module is hard to test without mocks, consider refactoring for testability.
+
+## Integration Testing Patterns
+
+Integration tests verify that units composed together behave correctly. They often render full components or small trees with real (or MSW-mocked) data.
+
+### Composing Components and Data
+
+Render a parent with real children. Provide context, router, or store as the app would. Use MSW to return fixture data for API calls. Assert on the combined behavior: "submitting the form shows success and clears inputs".
+
+**Avoid testing implementation**: If the component refactors from `useState` to a reducer, the integration test should still pass. Focus on user-visible outcomes and data flow.
+
+### Testing Hooks
+
+Test custom hooks with `@testing-library/react`'s `renderHook`. Provide any required context via a wrapper. Assert on returned values and re-renders when dependencies change. For hooks that cause side effects, you may need to mock or use a test environment (e.g., fake timers for `setInterval`).
+
+## End-to-End Testing with Cypress or Playwright
+
+E2E tests run in a real browser. They're the most confident but slowest tests. Use them for critical paths: sign-up, checkout, core workflows.
+
+### Cypress vs. Playwright
+
+**Cypress** has a simple API, time-travel debugging, and automatic waiting. It's synchronous-feeling and great for debugging. It runs in the browser context, which can limit some scenarios (e.g., multi-tab).
+
+**Playwright** runs tests in parallel, supports multiple browsers (Chromium, Firefox, WebKit), and can drive multiple pages. Its async API is explicit. Better for CI speed and cross-browser coverage.
+
+### Best Practices
+
+**Keep E2E tests few and focused.** Each test should cover one user journey. Avoid testing every UI detail—that's for unit/integration tests.
+
+**Use stable selectors.** Prefer `data-testid` or roles over fragile CSS selectors. Ensure test IDs don't clutter production markup or use a build step to strip them.
+
+**Handle flakiness.** Use explicit waits for dynamic content. Avoid fixed `cy.wait(3000)`—wait for specific elements or network requests. Retries help but fix root causes (race conditions, missing waits) rather than relying on retries alone.
+
+## Test-Driven Development (TDD) Workflow
+
+TDD inverts the typical flow: write a failing test first, then write the minimum code to pass, then refactor. The cycle is Red → Green → Refactor.
+
+### When TDD Shines
+
+TDD works well for pure functions, utilities, and well-defined APIs. Writing the test first forces you to clarify the contract. It prevents over-engineering—you only implement what the test requires.
+
+### When to Adapt
+
+TDD is harder for UI that's in flux, exploratory work, or when requirements are unclear. You can still test-first for stable logic and test-after for UI. The goal is good coverage and maintainable tests, not dogmatic adherence to TDD.
+
+### Combining with the Pyramid
+
+Use TDD for unit-level business logic. Write integration tests when composing features. Add E2E tests for critical paths once flows are stable. The pyramid guides where to invest; TDD can improve the quality of the base.
+
+---
+
+Testing is an investment. Start with high-value unit tests for logic and key components, add integration tests for critical flows, and reserve E2E for a few essential journeys. Prefer Testing Library's philosophy—test behavior, not implementation—and use mocking judiciously. Over time, a solid test suite becomes a safety net that enables confident refactoring and faster iteration.

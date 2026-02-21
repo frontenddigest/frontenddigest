@@ -1,0 +1,160 @@
+---
+title: "Design a File Upload Component"
+description: "System design for Dropbox-style file upload: drag-and-drop, chunked uploads, progress, retry, pause/resume, thumbnail previews, and cancellation."
+date: "2026-02-20"
+author: "Frontend Digest"
+audience: ["senior", "architect"]
+tags: ["system-design", "interview", "upload", "files"]
+order: 13
+featured: false
+---
+
+Designing a file upload component with production-grade features is a common frontend system design question. It exercises your understanding of browser APIs, concurrency control, error handling, and UX polish. Here's a structured approach.
+
+## Requirements Clarification
+
+### Functional Requirements
+
+- **Drag-and-drop zone**: Accept files via drag-over and drop; also click-to-browse fallback.
+- **File validation**: Validate size (max file size), type (MIME or extension whitelist); reject before upload starts.
+- **Chunked uploads**: Split large files (e.g., >5MB) into chunks for resumable uploads and better progress granularity.
+- **Progress indication**: Per-file progress bar; optional overall batch progress.
+- **Retry on failure**: Auto-retry with exponential backoff (e.g., 3 attempts); allow manual retry.
+- **Concurrent upload limits**: Cap simultaneous uploads (e.g., 3–5) to avoid overwhelming the network.
+- **Pause/Resume**: Pause in-flight uploads; persist chunk state to resume later (same session or across refresh).
+- **Thumbnail preview**: For images, show preview before/during upload; optional for other types (icon).
+- **Cancellation**: User can cancel queued or in-flight upload; abort XHR/fetch.
+
+### Non-Functional Requirements
+
+- **Reliability**: Handle network failures, 5xx errors; don't lose user-selected files on refresh (optional persistence).
+- **Performance**: Don't block main thread during chunk slicing; use Web Workers if needed for very large files.
+- **Accessibility**: Keyboard accessible; screen reader announcements for progress and status.
+- **Mobile**: Touch-friendly; support file input with `accept`; handle camera capture on mobile.
+
+## High-Level Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  FileUploader                                                                │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │ DropZone (drag-over highlight, click to browse)                        │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │ UploadQueue                                                            │  │
+│  │  ┌─────────────────────────────────────────────────────────────────┐   │  │
+│  │  │ FileItem (thumbnail, name, progress bar, pause/cancel/retry)     │   │  │
+│  │  └─────────────────────────────────────────────────────────────────┘   │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │ useUploadManager: queue, concurrency limiter, chunked upload, retry   │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+Data flow: User drops files → validate → enqueue → process queue (N concurrent) → chunk if large → upload chunks → merge/compose on server → report progress → done or retry.
+
+## Component Design
+
+### DropZone
+
+Wrapper with `onDragOver` (prevent default, add highlight class), `onDragLeave`, `onDrop` (extract `DataTransfer.files`). Also renders a hidden `<input type="file" multiple>` and triggers it on click. Supports `accept` (e.g., `image/*`) and `multiple`. Emits `onFilesSelected(files: FileList)`.
+
+### FileItem
+
+Renders a single file in the queue. Shows thumbnail (from `URL.createObjectURL(file)` for images; revoke when done). Displays filename, size, progress bar (0–100), status (queued, uploading, paused, completed, error). Actions: Pause, Resume, Retry, Cancel. Progress updated via callback from upload manager.
+
+### useUploadManager Hook
+
+- **Queue**: Array of `{ id, file, status, progress, error, chunksCompleted? }`.
+- **Concurrency**: Semaphore—only N uploads active; when one completes, start next.
+- **Chunking**: Slice file with `File.prototype.slice()`; default chunk size 5MB. Upload chunks in order; track `chunksCompleted` for resume.
+- **Retry**: On 4xx/5xx or network error, increment retry count; exponential backoff (1s, 2s, 4s) then retry or mark failed.
+- **Pause**: Abort current `AbortController`; store chunk progress; don't remove from queue.
+- **Resume**: Fetch `uploadId` from server (if supported); upload remaining chunks.
+- **Cancel**: Abort controller; remove from queue.
+
+```ts
+interface UploadFile {
+  id: string;
+  file: File;
+  status: 'queued' | 'uploading' | 'paused' | 'completed' | 'error';
+  progress: number;
+  error?: string;
+  uploadId?: string; // server-provided for resumable
+  chunksCompleted?: number;
+}
+
+interface ChunkUploadResult {
+  etag?: string;
+  partNumber: number;
+}
+
+interface UseUploadManagerOptions {
+  endpoint: string;
+  maxConcurrent?: number;
+  chunkSize?: number;
+  maxFileSize?: number;
+  allowedTypes?: string[];
+  onComplete?: (file: UploadFile, url: string) => void;
+}
+```
+
+## State Management
+
+- **Upload queue**: Array in React state or Zustand; append on file select.
+- **Per-file state**: status, progress, error—updated by upload worker.
+- **Concurrency slot count**: Track active uploads; decrement on complete/error/cancel.
+- **AbortControllers**: Map of fileId → AbortController for cancel/pause.
+
+## API Design
+
+**Initiate resumable upload (multipart):**
+```
+POST /api/upload/init
+Body: { filename, size, contentType }
+Response: { uploadId }
+```
+
+**Upload chunk:**
+```
+PUT /api/upload/:uploadId/chunk/:partNumber
+Body: binary chunk
+Headers: Content-Range
+Response: { etag }
+```
+
+**Complete upload:**
+```
+POST /api/upload/:uploadId/complete
+Body: { parts: [{ partNumber, etag }] }
+Response: { url }
+```
+
+**Simple upload (small files):**
+```
+POST /api/upload
+Body: multipart/form-data
+Response: { url }
+```
+
+## Performance Considerations
+
+- **Chunk size**: 5MB balances progress granularity and request overhead. Adjust for slow networks.
+- **Concurrency**: 3–5 parallel uploads typical; more can saturate bandwidth and cause timeouts.
+- **Thumbnail generation**: Use `createObjectURL`; revoke when component unmounts to avoid memory leaks. For many files, consider lazy generation.
+- **Main thread**: Chunk slicing is sync but fast for normal sizes; for 1GB+ files, consider Web Worker to avoid blocking.
+- **Memory**: Don't hold full file in memory; stream via `slice()` for chunks.
+
+## Accessibility
+
+- **Drop zone**: `role="button"`, `tabindex="0"`, `aria-label="Upload files"`. On activation, focus and trigger file input. Support `Enter`/`Space` to open picker.
+- **Progress**: `aria-valuenow`, `aria-valuemin`, `aria-valuemax` on progress bar. `aria-live="polite"` region to announce "Upload complete" or "Upload failed".
+- **Errors**: Announce error messages to screen readers; ensure retry button is reachable.
+- **Keyboard**: All actions (cancel, retry, pause) must be keyboard operable.
+
+## Trade-offs and Extensions
+
+**Trade-offs**: Chunked vs. single request—chunked enables resume and better progress; adds server complexity. Client vs. server chunk assembly—client sends chunks; server assembles (S3 multipart) or client assembles in Worker. Persist queue across refresh—requires IndexedDB; adds complexity but improves UX for long uploads.
+
+**Extensions**: Add folder upload (recursively add files). Support paste from clipboard (images). Implement client-side image compression before upload. Add virus scanning webhook feedback. Support upload to presigned S3/GCS URLs for direct-to-storage flow. Implement duplicate detection (hash before upload). Add upload speed/duration display.

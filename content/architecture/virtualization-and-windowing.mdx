@@ -1,0 +1,155 @@
+---
+title: "Virtualization and Windowing"
+description: "Master virtual scrolling for high-performance lists and tables: when to use it, library trade-offs, variable-height challenges, and integration patterns."
+date: "2026-02-20"
+author: "Frontend Digest"
+audience: ["senior", "architect"]
+tags: ["virtualization", "performance", "rendering"]
+order: 7
+featured: true
+---
+
+Rendering thousands of DOM nodes in a single list or table is one of the fastest ways to degrade frontend performance. The browser struggles with layout, paint, and memory when you mount hundreds or thousands of elements. Virtualization—also called windowing—solves this by rendering only what the user can see. Here's what architects need to know to design and implement high-performance list UIs.
+
+## The Problem: DOM Overload Kills Performance
+
+### Why Large Lists Are Slow
+
+Every DOM node incurs a cost: layout calculations, style recalculation, paint, and memory. A list of 10,000 items means 10,000+ nodes (depending on DOM structure), each participating in layout. Scrolling triggers continuous layout and paint work as the browser tries to keep up. The result: janky scrolling, delayed input, and high memory usage—especially on lower-end devices.
+
+### The Numbers That Matter
+
+Benchmarks typically show a clear inflection point. Up to ~100–200 visible items, most devices handle direct rendering fine. Beyond 500–1000, performance degrades. At 5000+, many apps become unusable. Virtualization keeps the DOM node count in the hundreds regardless of data size.
+
+## How Virtual Scrolling Works
+
+### Render Only the Visible Window
+
+Virtual scrolling maintains a "window" of visible items. You compute which indices are in view based on scroll position and container height, then render only those items—plus a small buffer above and below for smooth scrolling. As the user scrolls, the window shifts and you unmount items that leave the viewport and mount new ones.
+
+### The Buffer Zone
+
+A buffer of 5–10 items above and below the visible area prevents blank gaps when the user scrolls quickly. Too small a buffer causes flicker; too large defeats the purpose. Most libraries expose an `overscanCount` or similar parameter.
+
+```tsx
+import { FixedSizeList } from 'react-window';
+
+// Only ~15–20 items in DOM at any time, regardless of data size
+<FixedSizeList
+  height={600}
+  itemCount={10000}
+  itemSize={50}
+  width="100%"
+  overscanCount={5}
+>
+  {({ index, style }) => (
+    <div style={style}>Item {index}</div>
+  )}
+</FixedSizeList>
+```
+
+## Library Comparison: react-window, react-virtuoso, TanStack Virtual
+
+### react-window
+
+Brian Vaughn's react-window is minimal and fast. It assumes fixed item heights and provides `FixedSizeList`, `VariableSizeList`, `FixedSizeGrid`, and `VariableSizeGrid`. Small bundle, straightforward API. Downside: variable heights require manual measurement and can cause jumpy scrolling if not implemented carefully.
+
+### react-virtuoso
+
+Virtuoso handles variable heights automatically. It measures items as they render and maintains scroll position. Better for dynamic content (chat messages, rich list items). Heavier than react-window but solves the variable-height problem out of the box. Good for tables and complex lists.
+
+### TanStack Virtual
+
+TanStack Virtual is headless—you control the DOM. It computes the list of items to render and their positions; you implement the container and item markup. Maximum flexibility: works with any UI (lists, grids, masonry). Requires more wiring but is ideal when you need custom layouts or framework-agnostic logic.
+
+**Trade-off summary:** Fixed heights → react-window. Variable heights without fuss → react-virtuoso. Full control and headless → TanStack Virtual.
+
+## Fixed vs Variable Height Items
+
+### Fixed Height: Simplicity
+
+When all items are the same height, virtualization is straightforward. `itemSize` is a constant; position calculations are trivial. Use fixed heights when you can—e.g., avatars with single-line text.
+
+### Variable Height: Measurement Challenges
+
+Variable heights require measuring items. Options: (1) Estimate and correct—render with a guess, then measure and adjust (can cause scroll jumps); (2) Pre-measure—render off-screen to get dimensions (expensive); (3) Use a resize observer for each item—accurate but adds overhead. react-virtuoso uses a combination of estimation and measurement to minimize jumpiness.
+
+```tsx
+// TanStack Virtual: manual variable height with measurement
+const rowVirtualizer = useVirtualizer({
+  count: items.length,
+  getScrollElement: () => parentRef.current,
+  estimateSize: () => 80, // initial guess
+  overscan: 5,
+});
+```
+
+## Virtualized Grids and Tables (2D Virtualization)
+
+### 2D Windowing
+
+Tables often need virtualization in both rows and columns. `FixedSizeGrid` and `VariableSizeGrid` in react-window handle this. Each cell is rendered only when its row and column intersect the visible viewport. Large spreadsheets or data grids benefit dramatically.
+
+### Sticky Headers and Columns
+
+Sticky headers and frozen columns add complexity. The sticky element must be rendered outside the virtualized flow or as a special "always visible" row/column. Libraries like AG Grid and TanStack Table have built-in virtualization with these features; rolling your own requires careful positioning logic.
+
+## DOM Recycling vs Mount/Unmount
+
+### Mount/Unmount (Default)
+
+Most libraries unmount items that leave the viewport and mount new ones. Simpler, avoids state leakage, works well with React's reconciliation. Slight overhead on mount/unmount.
+
+### DOM Recycling (Reuse Nodes)
+
+Some implementations reuse DOM nodes—when an item scrolls out, its node is repopulated with content for a new item. Fewer DOM operations, but React doesn't support this natively; you'd need to bypass React's rendering for the list body or use a non-React solution. Use when you're pushing the limits of mount/unmount performance.
+
+## Integration Challenges
+
+### Focus Management
+
+When items are mounted/unmounted, keyboard focus can be lost. Screen reader users need predictable focus when navigating. Preserve focus by tracking the "logical" focused index and ensuring the newly visible item receives focus when the previously focused item is unmounted. Some libraries have built-in support; verify before committing.
+
+### Accessibility
+
+Announce list length and position to screen readers. Use `aria-rowcount`, `aria-rowindex`, and ensure the virtualized list exposes a proper `role="list"` or `role="grid"`. Live regions for scroll position can help but must not be overly verbose.
+
+### Scroll Restoration
+
+On navigation back, restore scroll position. Virtualized lists often need to "scroll to index" on mount—which may require measuring items to compute the right scroll offset. Persist scroll position (e.g., in session storage) and restore after data loads.
+
+### Search-in-Page (Ctrl+F)
+
+Browser find-in-page searches the DOM. Virtualized content not in the DOM won't be found. Solutions: (1) Render a hidden full list for search only (memory cost); (2) Implement custom search that scrolls to and expands the matching item; (3) Document the limitation for power users.
+
+## When NOT to Virtualize
+
+### Small Lists
+
+Lists under ~100–200 items rarely need virtualization. The overhead of virtualization logic can exceed the cost of rendering. Measure first.
+
+### SEO-Critical Content
+
+If your list content must be indexed (e.g., product listings, article lists), virtualized content may not be in the DOM when crawlers run. Use SSR/SSG for above-the-fold content or ensure crawlers can access the full list through alternative means (HTML snapshot, sitemap, etc.).
+
+### Simple Carousels
+
+Carousels show a fixed number of items; virtualization adds complexity without benefit.
+
+## Performance Benchmarks: What to Measure
+
+### DOM Node Count
+
+Use React DevTools or `document.getElementsByTagName('*').length` to confirm only the expected number of nodes exist. Virtualization should keep this roughly constant as you scroll.
+
+### Memory
+
+Profile memory over time. Virtualization reduces DOM nodes but doesn't eliminate data—your items array still lives in memory. For very large datasets, consider pagination or virtualized data loading.
+
+### Scroll Jank (FPS)
+
+Use Chrome DevTools Performance panel or `requestAnimationFrame`–based FPS counters. Aim for 60fps during scroll. Jank often comes from heavy per-item render logic—optimize item components (memoization, avoiding layout thrashing) in addition to virtualization.
+
+---
+
+Virtualization is a foundational technique for data-heavy UIs. Choose the right library for your constraints (fixed vs variable height, 1D vs 2D), invest in accessibility and edge cases, and only apply it where the data size justifies the added complexity.

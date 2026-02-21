@@ -1,0 +1,142 @@
+---
+title: "Design an E-Commerce Product Page"
+description: "System design for an Amazon-style product page: image gallery and zoom, variant selection, pricing, add-to-cart, reviews, related products, SEO, and performance."
+date: "2026-02-20"
+author: "Frontend Digest"
+audience: ["senior", "architect"]
+tags: ["system-design", "interview", "e-commerce", "product"]
+order: 4
+featured: false
+---
+
+Designing an e-commerce product page tests your ability to balance rich UX, performance with many images, and SEO. Here's how to structure your answer.
+
+## Requirements Clarification
+
+### Functional Requirements
+
+- Display product title, description, price (with discounts), and availability.
+- Image gallery: main image with thumbnails; click/zoom for detail.
+- Variant selection: size, color, or other attributes that affect price/availability.
+- Add to cart with quantity selector; update cart count in header.
+- Reviews section: list, pagination, rating summary, sort/filter.
+- Related products carousel.
+- Optional: wishlist, comparison, share.
+
+### Non-Functional Requirements
+
+- **Performance**: LCP under 2.5s; many images must not block initial render.
+- **SEO**: Server-rendered or static HTML; semantic structure; structured data (Product schema).
+- **Accessibility**: Keyboard navigation, screen reader support, focus management in modals.
+
+## High-Level Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  ProductPage (SSR or SSG)                                            │
+│  ┌──────────────────────┐  ┌──────────────────────────────────────┐ │
+│  │ ProductGallery       │  │ ProductInfo                            │ │
+│  │ - MainImage + Zoom   │  │ - Title, Price, VariantSelectors       │ │
+│  │ - Thumbnails        │  │ - AddToCart, Quantity                   │ │
+│  └──────────────────────┘  └──────────────────────────────────────┘ │
+│  ┌────────────────────────────────────────────────────────────────┐ │
+│  │ ProductDescription (tabs or accordion)                          │ │
+│  └────────────────────────────────────────────────────────────────┘ │
+│  ┌────────────────────────────────────────────────────────────────┐ │
+│  │ ReviewsSection (infinite or paginated)                          │ │
+│  └────────────────────────────────────────────────────────────────┘ │
+│  ┌────────────────────────────────────────────────────────────────┐ │
+│  │ RelatedProducts (carousel)                                       │ │
+│  └────────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+Data flow: page loads with product data (SSR/SSG) → variant selection updates price/availability → add to cart mutates global cart state → reviews and related products fetched client-side or preloaded.
+
+## Component Design
+
+### ProductGallery
+
+Main image displays the selected variant's image. Thumbnails below; click switches main image. Zoom: hover overlay or modal with `transform: scale()` on a larger image. Use `loading="lazy"` for thumbnails; main image `fetchpriority="high"`. Use `srcset` and `sizes` for responsive images.
+
+### ProductInfo
+
+- **Title**: H1 for SEO.
+- **Price**: Show original (strikethrough) if discounted; display currency and tax hint.
+- **VariantSelectors**: Size buttons, color swatches. Selection drives `selectedVariant`; update price, availability, and gallery via derived state.
+- **AddToCart**: Button disabled if out of stock. Quantity stepper (1–max). On click: mutation with optimistic cart update.
+
+### ReviewsSection
+
+Rating summary (stars distribution). List of reviews with pagination or "Load more". Sort: most recent, highest rated. Filter by star rating. Each review: author, date, rating, text, optional images. Use `IntersectionObserver` for infinite load.
+
+### RelatedProducts
+
+Horizontal carousel. Each item: thumbnail, title, price. Lazy-load images. Prefetch product data on hover for faster navigation.
+
+```ts
+interface Product {
+  id: string;
+  title: string;
+  description: string;
+  variants: Variant[];
+  images: { url: string; alt: string; variantIds?: string[] }[];
+}
+
+interface Variant {
+  id: string;
+  sku: string;
+  price: number;
+  compareAtPrice?: number;
+  available: boolean;
+  options: { name: string; value: string }[];
+}
+```
+
+## State Management
+
+- **Product data**: Server state. Fetched at build time (SSG) or request (SSR); revalidate on client for stock updates.
+- **Selected variant**: Client state. Determines active image, price, availability, add-to-cart behavior.
+- **Cart**: Global state (Context, Zustand, or server session). Optimistic update on add.
+- **Reviews**: Server state. Paginated or infinite query.
+- **URL state**: Optional. Persist variant in URL (`?color=blue&size=M`) for shareability.
+
+## API Design
+
+```
+GET /api/products/:slug  → Product (with variants, images)
+GET /api/products/:id/reviews?page=&sort=  → { reviews, total, averageRating }
+GET /api/products/:id/related?limit=8  → Product[]
+POST /api/cart/items    → { cart }
+```
+
+For pricing, ensure variant-specific price is returned. Reviews may have separate service; consider caching aggregates.
+
+## Performance Considerations
+
+- **Images**: Use `<picture>` or `srcset` with multiple resolutions. Lazy-load below-the-fold images (reviews, related). Main image: preload or high priority.
+- **Critical CSS**: Inline above-the-fold styles; defer non-critical.
+- **Code splitting**: Lazy-load ReviewsSection and RelatedProducts if below fold.
+- **Hydration**: Consider partial hydration—product info and gallery critical; reviews can hydrate on scroll.
+- **CDN**: Serve images and static assets from CDN; consider WebP/AVIF with fallbacks.
+
+## Accessibility
+
+- **Gallery**: Arrow keys for thumbnail navigation; `aria-label` on controls. Zoom modal: focus trap, Escape to close.
+- **Variant selectors**: Use `role="group"` and `aria-label`; ensure keyboard-accessible.
+- **Add to cart**: Disabled state announced; success feedback (live region or toast).
+- **Reviews**: Semantic `article` per review; proper heading hierarchy.
+- **Related products**: Carousel with `aria-roledescription="carousel"`; prev/next buttons.
+
+## SEO
+
+- **Semantic HTML**: H1 for title; `article` for product; structured data (JSON-LD Product schema) with name, price, availability, reviews aggregate.
+- **Meta tags**: `og:image` for main product image; dynamic title and description.
+- **URLs**: Clean, readable slugs (`/products/blue-running-shoes`).
+- **Internal links**: Related products, breadcrumbs.
+
+## Trade-offs and Extensions
+
+**Trade-offs**: SSR vs. SSG—SSR allows real-time pricing/stock; SSG is faster and cheaper. Full client hydration vs. islands—islands reduce JS; full hydration simplifies state.
+
+**Extensions**: Add recently viewed (localStorage). Bundle deals ("Frequently bought together"). Size guide modal. Video in gallery. Inventory warnings ("Only 3 left"). A/B test layout and CTA placement.

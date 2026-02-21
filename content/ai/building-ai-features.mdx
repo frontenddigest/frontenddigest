@@ -1,0 +1,34 @@
+---
+title: "Building AI Features in Web Applications"
+description: "Learn how to add AI-powered features to your web apps—from chat interfaces to intelligent search—with practical guidance on LLM integration and UX considerations."
+date: "2026-02-20"
+author: "Frontend Digest"
+audience: ["senior", "architect", "founder"]
+tags: ["ai", "features", "ux", "llm"]
+order: 2
+featured: false
+---
+
+## Adding AI-Powered Features to Web Applications
+
+AI features are becoming table stakes for modern web applications. Users expect intelligent search, personalized recommendations, and conversational interfaces. Adding these capabilities no longer requires a dedicated ML team—LLM APIs and hosted solutions make it feasible for frontend and full-stack teams to ship AI features quickly.
+
+Start by identifying high-value, low-friction use cases. Where does AI reduce effort or improve outcomes? Common candidates include: answering support questions, summarizing long content, suggesting next actions, or helping users find information. Avoid AI for its own sake; ensure each feature solves a real problem. Then choose your integration approach: direct API calls, backend proxies, or managed services depending on your security, latency, and cost requirements.
+
+## Common Patterns: Chat Interfaces, Search, and Recommendations
+
+**Chat interfaces** are the most recognizable AI pattern. Users type questions and receive conversational responses. Implement them with a message list, input field, and streaming response handling. Use system prompts to define the assistant's persona and guardrails. Consider hybrid approaches—combining LLM-generated answers with structured data from your backend for accuracy.
+
+**AI-powered search** goes beyond keyword matching. Users phrase questions in natural language and get relevant results. Implement with semantic search (vector embeddings) or LLM-driven query rewriting. **Recommendations** use AI to suggest products, content, or actions. These often run asynchronously—the model generates suggestions on the backend; the frontend displays and tracks engagement. Each pattern has different latency, cost, and UX implications; choose based on your use case.
+
+## Working with LLM APIs from the Frontend
+
+Calling LLM APIs directly from the frontend is generally discouraged. API keys would be exposed, and you'd bypass important middleware (rate limiting, logging, cost control). Instead, proxy requests through your backend. Your frontend sends user input to your API; your backend calls the LLM provider, applies any post-processing, and returns the result.
+
+Use streaming when possible. LLMs generate tokens incrementally; streaming lets users see progress instead of waiting for a full response. The Server-Sent Events (SSE) or `fetch` with `ReadableStream` patterns work well. Handle token limits—long conversations may need summarization or context window management. Implement retries and fallbacks for API failures. Consider client-side caching for repeated queries when appropriate.
+
+## UX Considerations for AI Features
+
+AI features introduce UX challenges that traditional interfaces don't have. **Loading states** are critical—LLM responses can take several seconds. Show skeletons, typing indicators, or progressive disclosure so users know something is happening. **Streaming** improves perceived performance; display tokens as they arrive rather than waiting for the full response. Use subtle animations to signal that content is still generating.
+
+**Error handling** must be graceful. LLM APIs can fail, rate-limit, or return low-quality responses. Surface clear messages: "Something went wrong. Please try again." Offer fallbacks—a link to search, a human support option, or a retry button. **Uncertainty** is inherent in AI—responses can be wrong. Design for it: show confidence indicators when possible, encourage verification for critical tasks, and avoid presenting AI output as authoritative when it isn't. **Accessibility** matters: ensure chat interfaces work with screen readers, keyboards, and reduced motion preferences. Test with real users early and often.

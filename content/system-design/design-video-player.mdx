@@ -1,0 +1,130 @@
+---
+title: "Design a Video Player"
+description: "System design for a custom video player like YouTube: controls, progress thumbnails, quality selection, subtitles, keyboard shortcuts, fullscreen, PiP, buffering, and adaptive bitrate (HLS/DASH)."
+date: "2026-02-20"
+author: "Frontend Digest"
+audience: ["senior", "architect"]
+tags: ["system-design", "interview", "video", "media"]
+order: 6
+featured: false
+---
+
+Designing a video player is a common frontend system design question that tests your grasp of media APIs, performance, accessibility, and complex UI state. Here’s a structured approach.
+
+## Requirements Clarification
+
+### Functional Requirements
+
+- **Playback:** Play, pause, seek, volume, playback rate, mute.
+- **Progress:** Scrubbing with preview thumbnails (like YouTube), jump to any position.
+- **Quality:** Manual quality selection and auto-adaptive (ABR).
+- **Captions:** Show subtitles, multiple tracks, user toggle.
+- **Layout:** Fullscreen, picture-in-picture, responsive container.
+- **Shortcuts:** Keyboard controls (space = play/pause, arrows = seek, etc.).
+
+### Non-Functional Requirements
+
+- Low Time to First Frame (TTFF), smooth buffering UX.
+- Works across major browsers and devices.
+- WCAG 2.1 AA for captions and controls.
+- Support HLS and DASH for adaptive streaming.
+
+## High-Level Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    VideoPlayerContainer                  │
+├─────────────────────────────────────────────────────────┤
+│  VideoElement (native <video>)  │  CustomControlsOverlay │
+│  - HLS.js / dash.js instance   │  - ProgressBar         │
+│  - MediaSource API             │  - ControlBar          │
+│                                │  - CaptionsLayer       │
+└─────────────────────────────────────────────────────────┘
+```
+
+Data flow: user actions → control handlers → video element / HLS.js; media events (timeupdate, loadedmetadata, etc.) → state → UI.
+
+## Component Design
+
+### Core Components
+
+**VideoElementWrapper:** Wraps `<video>` and manages HLS.js or dash.js. Handles `src` changes and exposes a stable API for play/pause/seek/volume.
+
+**ProgressBar:** Shows current time, buffered range, and scrubbing. Renders preview thumbnails on hover (VTT sprite sheet or per-segment images).
+
+**ControlBar:** Play/pause, volume, current time, duration, playback rate, quality menu, captions toggle, fullscreen, PiP.
+
+**CaptionsLayer:** Overlays cue text using the WebVTT API (`VTTCue`, `TextTrack`). Syncs with `currentTime`.
+
+```tsx
+interface VideoPlayerProps {
+  src: string;           // URL or HLS/DASH manifest
+  poster?: string;
+  onTimeUpdate?: (time: number) => void;
+  qualityLevels?: QualityLevel[];  // from HLS/DASH
+  captions?: SubtitleTrack[];
+}
+```
+
+## State Management
+
+| State | Location | Notes |
+|-------|----------|-------|
+| `isPlaying`, `currentTime`, `duration` | Component state or store | Synced from video events |
+| `buffered` | Derived from `video.buffered` | Ranges for progress bar |
+| `volume`, `muted` | Local state or persisted | LocalStorage for preferences |
+| `qualityLevel`, `playbackRate` | Local state | User selection |
+| `captionsVisible`, `activeTrack` | Local state | User preference |
+| `isFullscreen`, `isPiP` | Local state | Document-level APIs |
+
+Use `useSyncExternalStore` or a small store if controls are shared across multiple components. Prefer local state if the player is self-contained.
+
+## API Design
+
+### Client-Side Data Contracts
+
+```typescript
+// HLS.js / dash.js expose quality levels
+interface QualityLevel {
+  height: number;
+  width: number;
+  bitrate: number;
+  label: string;  // "1080p", "720p", "Auto"
+}
+
+// VTT for captions
+// WebVTT format - cues with start/end times
+// Thumbnail sprite: single image + VTT mapping positions
+```
+
+### Backend Endpoints (if applicable)
+
+- **Manifest:** `GET /video/:id/manifest.m3u8` (HLS) or `.mpd` (DASH)
+- **Thumbnails:** `GET /video/:id/thumbnails.vtt` + sprite image
+- **Captions:** `GET /video/:id/captions/:lang.vtt`
+
+## Performance Considerations
+
+- **Lazy-load HLS.js/dash.js:** Only when HLS/DASH URL is used.
+- **Thumbnail sprites:** One image + VTT for seek previews instead of per-frame images.
+- **Debounce progress updates:** Don’t re-render on every `timeupdate`; throttle to ~250ms or use `requestAnimationFrame`.
+- **Virtual captions:** For very long videos, only render cues near `currentTime`.
+- **Adaptive bitrate:** Let HLS.js/dash.js handle switching; surface quality in the UI and optionally allow manual override.
+
+## Accessibility
+
+- **Controls:** All controls keyboard-focusable; support Space, Arrow keys, M (mute), F (fullscreen).
+- **ARIA:** `role="application"` for the player, `aria-label` on controls, `aria-valuenow`/`aria-valuemin`/`aria-valuemax` on the seek bar.
+- **Captions:** Default on when available; respect `prefers-reduced-motion`.
+- **Focus:** Trap focus in fullscreen; return focus when exiting.
+- **Reduced motion:** Respect `prefers-reduced-motion` for preview animations.
+
+## Trade-offs and Extensions
+
+**Trade-offs:** Custom controls add maintenance vs. native controls. HLS.js is widely supported but adds bundle size; dash.js is heavier. Preview thumbnails need server-side generation and storage.
+
+**Extensions:** Playlist/queue, chapters, analytics (watch time, drop-off), live streams with DVR, A/B testing for player layout.
+
+### Buffering and Loading States
+
+Handle `waiting`, `canplay`, and `stalling` events to show buffering indicators. Display a spinner or progress indicator when `video.readyState < 2`. Consider showing estimated buffer time based on `buffered.end()` vs. `currentTime` to set user expectations during poor network conditions.

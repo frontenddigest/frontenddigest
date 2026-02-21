@@ -1,0 +1,82 @@
+---
+title: "JavaScript Language Basics"
+description: "Core JavaScript concepts: variables, functions, control flow, objects, arrays, scope, error handling, and modern ES6+ syntax every frontend developer needs."
+date: "2026-02-20"
+author: "Frontend Digest"
+audience: ["beginner"]
+tags: ["javascript", "fundamentals", "programming"]
+order: 3
+featured: false
+---
+
+JavaScript powers interactivity on the web. Understanding its fundamentals—how variables work, how functions behave, and how to structure control flow—lays the foundation for building robust frontend applications.
+
+## Variables and Data Types
+
+### let, const, and var
+
+Modern JavaScript offers three ways to declare variables. **`const`** declares a constant binding; the variable cannot be reassigned, though object properties can still change. Use `const` by default for clarity and to prevent accidental reassignment.
+
+**`let`** declares a block-scoped variable that can be reassigned. Use it when you need to mutate the binding, such as in loop counters or accumulators.
+
+**`var`** is the legacy declarator. It's function-scoped (or globally scoped), hoisted in confusing ways, and can cause subtle bugs. Avoid it in new code.
+
+### Primitive and Reference Types
+
+JavaScript has seven primitive types: `undefined`, `null`, boolean, number, bigint, string, and symbol. Primitives are copied by value. Objects (including arrays and functions) are reference types—assigning or passing them copies the reference, not the value. Understanding this prevents bugs when mutating shared objects.
+
+## Functions
+
+### Function Declarations vs. Expressions
+
+Function declarations are hoisted, so you can call them before they appear in the code. Expressions (assigning a function to a variable) are not hoisted. Choose declarations when you want top-level, reusable logic; use expressions when the function is part of a larger expression or conditionally defined.
+
+### Arrow Functions
+
+Arrow functions (`() => value`) provide concise syntax and **lexical `this`**—they inherit `this` from the surrounding scope rather than binding their own. Use them for callbacks, array methods, and when you need to preserve outer context. They cannot be used as constructors and don't have their own `arguments` object.
+
+## Control Flow
+
+### Conditionals: if/else and switch
+
+`if`/`else` handles branching. Prefer early returns to reduce nesting. The `switch` statement matches a value against multiple cases; always include `break` (or use `return`) to prevent fall-through. For object-based dispatch or many branches, a map or object lookup often reads clearer than a long switch.
+
+### Loops: for, while, and for...of
+
+`for` loops give you explicit control over initialization, condition, and increment. `for...of` iterates over iterable values (arrays, strings) and is cleaner for simple iteration. `while` and `do...while` handle cases where the exit condition isn't tied to a counter. Prefer `for...of` for arrays; avoid `for...in` for arrays (it iterates over keys, including prototype chain).
+
+## Objects and Arrays
+
+### Creating and Accessing Objects
+
+Objects store key-value pairs. Use dot notation for known keys; bracket notation for dynamic keys or keys with special characters. Destructuring and spread make working with objects ergonomic—spread creates shallow copies, which is useful for immutable updates.
+
+### Array Methods
+
+Arrays come with powerful built-in methods: `map`, `filter`, `reduce`, `find`, `some`, `every`, and `flatMap`. These methods avoid manual loops and express intent clearly. `reduce` can implement map, filter, and more—use it when you need a single aggregated value.
+
+## Scope and Closures (Brief Intro)
+
+Variables have lexical scope: they're visible in the block (or function) where they're declared and in nested blocks. A **closure** is a function that "remembers" its enclosing scope even after that scope has finished. Inner functions that capture outer variables form closures—this underpins many patterns in React and event handlers.
+
+## Error Handling with try/catch
+
+Wrap risky code in `try`/`catch` to handle runtime errors gracefully. Use `throw` to signal errors; catch them higher up or in a global handler. `finally` runs whether or not an exception occurred—useful for cleanup. Don't overuse try/catch for control flow; reserve it for exceptional situations.
+
+## ES6+ Features Overview
+
+### Destructuring
+
+Pull values from objects and arrays into named variables: `const { name } = user` or `const [first, ...rest] = arr`. Use default values (`{ x = 0 }`) and rest (`...remaining`) for flexible extraction.
+
+### Spread Operator
+
+`...` spreads iterables into arrays or object properties. Merge arrays, copy objects, or pass array elements as function arguments. Combined with destructuring, it simplifies data transformation.
+
+### Template Literals
+
+Backticks enable multi-line strings and interpolation: `` `Hello, ${name}!` ``. Tagged templates let you process template literals with custom logic (useful for sanitization or i18n).
+
+---
+
+Mastering these fundamentals makes every subsequent JavaScript topic—async code, modules, frameworks—easier to learn. Build the habit of using `const` by default, preferring array methods over loops, and reaching for modern syntax where it improves readability.

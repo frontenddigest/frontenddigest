@@ -1,0 +1,147 @@
+---
+title: "Design a Multi-Step Checkout Flow"
+description: "System design for Shopify-style checkout: step validation gates, address autocomplete, Stripe Elements, order summary sidebar, form persistence, and mobile optimization."
+date: "2026-02-20"
+author: "Frontend Digest"
+audience: ["senior", "architect"]
+tags: ["system-design", "interview", "checkout", "e-commerce"]
+order: 15
+featured: false
+---
+
+Designing a multi-step checkout flow is a critical frontend system design question in e-commerce. It combines form validation, payment integration, state persistence, and conversion optimization. Here's a structured approach.
+
+## Requirements Clarification
+
+### Functional Requirements
+
+- **Step navigation**: Sequential steps (e.g., Information → Shipping → Payment → Review). Next/Back buttons with validation gates—cannot advance until current step is valid.
+- **Address form**: Shipping and billing address with autocomplete (e.g., Google Places API). Validation for required fields.
+- **Payment integration**: Integrate Stripe Elements (or similar) for card input; handle PCI compliance (never touch raw card data).
+- **Order summary sidebar**: Persistent display of cart items, subtotal, shipping, tax, total. Updates as user progresses (e.g., shipping cost appears after step 2).
+- **Form persistence**: Save form state across steps; optionally persist to backend for "resume later" (link in email).
+- **Error handling**: Display payment errors (declined, insufficient funds); allow retry without re-entering all data.
+- **Mobile optimization**: Full-width layout, sticky order summary or collapsible, large touch targets.
+- **Cart state**: Sync with cart API; handle out-of-stock or price changes during checkout; show warnings.
+
+### Non-Functional Requirements
+
+- **Conversion**: Minimize friction; clear progress indicator; no unnecessary steps.
+- **Security**: No raw card data in client; use Stripe Elements. Validate all inputs server-side.
+- **Analytics**: Track step abandonment, field-level drop-off, payment failures for optimization.
+- **Reliability**: Handle payment gateway timeouts; retry logic; clear error messages.
+- **Accessibility**: Full keyboard flow; screen reader support for form errors and payment status.
+
+## High-Level Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  CheckoutLayout                                                               │
+│  ┌─────────────────────────────────────┐  ┌──────────────────────────────┐  │
+│  │ MainContent                          │  │ OrderSummarySidebar (sticky)  │  │
+│  │  ┌───────────────────────────────┐   │  │  CartItems                   │  │
+│  │  │ StepProgress (1→2→3→4)        │   │  │  Subtotal, Shipping, Tax     │  │
+│  │  └───────────────────────────────┘   │  │  Total                       │  │
+│  │  ┌───────────────────────────────┐   │  │  PromoCode                   │  │
+│  │  │ StepContent (conditionally    │   │  └──────────────────────────────┘  │
+│  │  │  rendered)                     │   │                                    │
+│  │  │  InfoStep | ShippingStep |    │   │                                    │
+│  │  │  PaymentStep | ReviewStep     │   │                                    │
+│  │  └───────────────────────────────┘   │  │                                    │
+│  │  ┌───────────────────────────────┐   │  │                                    │
+│  │  │ Navigation: Back | Continue    │   │  │                                    │
+│  │  └───────────────────────────────┘   │  │                                    │
+│  └─────────────────────────────────────┘  └──────────────────────────────┘  │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │ useCheckout: step, form values, validation, Stripe, submit             │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+Data flow: User fills step → validate → store in state → advance step → repeat; on final step → create PaymentIntent → confirm with Stripe → submit order → redirect to confirmation.
+
+## Component Design
+
+### StepProgress
+
+Horizontal stepper showing step labels (1. Information, 2. Shipping, etc.). Highlights current step; optionally shows completed steps with checkmarks. Not clickable to skip (enforce linear flow) or allow jump back to completed steps only.
+
+### InfoStep / ShippingStep / PaymentStep / ReviewStep
+
+Each step is a form or set of inputs. InfoStep: email, shipping address with autocomplete. ShippingStep: shipping method selector (e.g., Standard, Express). PaymentStep: Stripe CardElement + billing address if different. ReviewStep: read-only summary of all info with edit links (navigate back to that step).
+
+### AddressAutocomplete
+
+Wrapper around Google Places Autocomplete (or similar). Input with debounced fetch; dropdown with suggestions. On select, parse result into address fields (street, city, state, zip, country). Handle international formats. Validate required fields after autocomplete.
+
+### PaymentForm (Stripe Elements)
+
+Mount `CardElement` from `@stripe/react-stripe-js`. Wrap in `Elements` and `CardElement` providers. On submit: call `stripe.confirmCardPayment(clientSecret, { payment_method: { card: elements.getElement(CardElement) } })`. Handle `payment_intent.succeeded` or error; show loading state during confirmation.
+
+### OrderSummarySidebar
+
+Fetches or receives cart data. Displays line items (image, name, qty, price), subtotal, shipping (from ShippingStep or calculated), tax estimate, total. On mobile, collapsible accordion or moved below main content. Sticky on desktop for visibility.
+
+```ts
+interface CheckoutState {
+  step: number;
+  info: { email: string; shippingAddress: Address };
+  shipping: { methodId: string };
+  payment: { billingSameAsShipping: boolean; billingAddress?: Address };
+  cart: { items: LineItem[]; subtotal: number };
+}
+
+interface Address {
+  line1: string;
+  line2?: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+}
+```
+
+## State Management
+
+- **Step index**: Current step (0-based); controls which form is rendered.
+- **Form values**: Per-step fields; use React Hook Form or Formik with persistence to sessionStorage or context. Optionally sync to backend for resume.
+- **Validation state**: Per-field errors; block "Continue" until valid. Show errors on blur or submit attempt.
+- **Cart**: From API; refetch on mount and when returning from payment failure (cart may have changed).
+- **Payment intent**: Client secret from backend after order creation; pass to Stripe for confirmation.
+
+Use a single store (Zustand/Context) or lift state to CheckoutLayout. Persist to sessionStorage on each step change for refresh resilience.
+
+## API Design
+
+```
+GET  /api/cart                    → cart contents, totals
+POST /api/checkout/validate       → validate address, shipping availability
+POST /api/checkout/create-intent  → create order, get PaymentIntent client_secret
+POST /api/checkout/complete       → after Stripe success, confirm order
+GET  /api/checkout/draft/:token   → resume saved checkout (optional)
+PUT  /api/checkout/draft          → save progress (optional)
+```
+
+Stripe flow: Backend creates PaymentIntent with amount; returns `client_secret`. Frontend confirms with Stripe; on success, backend webhook or poll confirms. Frontend then calls `/complete` with order ID.
+
+## Performance Considerations
+
+- **Lazy load Stripe**: Load Stripe.js only when entering PaymentStep to reduce initial bundle.
+- **Debounce address autocomplete**: 300ms to avoid excessive API calls.
+- **Optimistic UI**: Show success state before final redirect; handle failure edge cases.
+- **Cart staleness**: Refetch cart when entering checkout; warn if items removed or prices changed.
+- **Form persistence**: Throttle sessionStorage writes on every field change; write on step change.
+
+## Accessibility
+
+- **Focus management**: On step change, focus first field or heading. On error, focus first invalid field.
+- **Error announcements**: Use `aria-live="polite"` for validation and payment errors. Associate errors with inputs via `aria-describedby` and `aria-invalid`.
+- **Progress**: Announce step change to screen readers ("Step 2 of 4: Shipping").
+- **Payment**: Stripe Elements are iframe-based; ensure labels and errors are announced. Provide fallback link for users who cannot use the form.
+- **Keyboard**: Full tab order; Back/Continue buttons reachable; no focus traps except in modals.
+
+## Trade-offs and Extensions
+
+**Trade-offs**: Multi-step vs. single-page—multi-step can improve completion by reducing perceived effort; single-page is faster for small carts. Client vs. server validation—always server; client for UX. Persist to backend vs. sessionStorage—backend enables cross-device resume; sessionStorage is simpler. Stripe Elements vs. custom—Elements handles PCI; custom requires PCI DSS compliance.
+
+**Extensions**: Add Apple Pay / Google Pay for faster mobile checkout. Implement guest checkout vs. account creation. Add promo code validation with live feedback. Support multiple payment methods (PayPal, etc.). Add order notes field. Implement A/B testing for step order or copy. Add abandoned cart recovery (email with resume link). Support split shipments or gift messaging.

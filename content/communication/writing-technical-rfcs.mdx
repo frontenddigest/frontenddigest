@@ -1,0 +1,85 @@
+---
+title: "Writing Technical RFCs"
+description: "Learn when and how to write effective Request for Comments documents that drive alignment, capture design decisions, and get technical proposals approved."
+date: "2026-02-20"
+author: "Frontend Digest"
+audience: ["senior", "architect"]
+tags: ["rfc", "writing", "proposals"]
+order: 3
+featured: false
+---
+
+## What Is an RFC and When to Write One
+
+An RFC (Request for Comments) is a formal document that proposes a technical approach to a problem, inviting feedback and discussion before implementation. Originally popularized by the IETF for internet standards, RFCs have become a staple of software engineering culture—especially at companies like Stripe, Shopify, and Vercel.
+
+**When to write an RFC:** Write one when the decision has lasting impact, involves multiple teams, introduces significant risk, or requires stakeholder buy-in beyond your immediate team. Migrating from REST to GraphQL, adopting a new state management library, or rearchitecting your build pipeline—these all warrant RFCs. Fixing a bug or adding a small feature typically does not.
+
+**When to skip it:** For low-risk, reversible changes or decisions that affect only your squad, a quick design doc or async discussion may suffice. RFCs take time; reserve them for decisions that warrant the investment.
+
+## RFC Structure: Problem, Solution, Alternatives, Risks, Timeline
+
+A well-structured RFC guides readers through your thinking and makes feedback actionable. Follow this proven template:
+
+### Problem Statement
+
+Open with a clear, concise problem definition. What pain are we solving? Include context: who is affected, how often, and what happens if we do nothing? Quantify when possible—"our bundle size has grown 40% year-over-year" beats "our bundle is big."
+
+### Proposed Solution
+
+Describe your approach in enough detail that a peer could implement it. Include architecture diagrams, data flows, and key technical decisions. Be specific: naming, file structure, migration path. Address edge cases and failure modes.
+
+### Alternatives Considered
+
+List 2–3 alternatives you evaluated and why you rejected them. This demonstrates due diligence and preempts "what about X?" questions. Even briefly documenting "we considered micro-frontends but ruled it out due to our deployment constraints" builds credibility.
+
+### Risks and Mitigations
+
+Every technical decision carries risk. Acknowledge trade-offs openly. What could go wrong? How will you mitigate or detect issues? Teams that surface risks proactively earn trust.
+
+### Timeline and Milestones
+
+Provide a phased rollout plan with clear milestones and success criteria. This helps stakeholders understand scope and enables progress tracking.
+
+## Writing Clearly for a Technical Audience
+
+Engineers skim. Write for scanners: use headers, bullets, and short paragraphs. Lead each section with the main point, then support with detail. Avoid jargon unless your audience shares it—and when you use it, define it once.
+
+**Be precise.** "We'll use React Server Components" is better than "we'll use modern React features." "Migration in 3 phases over 6 weeks" beats "we'll migrate gradually."
+
+**Show, don't just tell.** Code snippets, diagrams, and examples make abstract proposals concrete. A sequence diagram of the new data flow is worth a paragraph of prose.
+
+## Getting Buy-In Through the RFC Process
+
+RFCs are as much about process as content. Share drafts early with key stakeholders before the formal review. Incorporate their feedback so they feel heard. Set a clear review window (e.g., one week) and a decision date.
+
+**Make feedback easy.** Use comments, async reviews, or a dedicated Slack channel. The goal is to reduce friction so people actually engage.
+
+**Own the narrative.** If someone raises a concern, address it in the doc. Add an FAQ section for recurring questions. Update the RFC based on feedback—show that you listened.
+
+## Common Mistakes in Technical Proposals
+
+**Being vague.** "We'll improve performance" tells no one what you'll do. Specify metrics, approaches, and trade-offs.
+
+**Skipping alternatives.** Readers will ask "why not X?" If you haven't answered that in the doc, you'll answer it repeatedly in meetings.
+
+**Writing a novel.** RFCs should be comprehensive but scannable. If your RFC exceeds 2000 words, consider splitting it or moving details to appendices.
+
+**Ignoring operational concerns.** How will this be deployed? Monitored? Rolled back? Ops and SRE teams care—address their needs.
+
+## Example RFC Outline for a Frontend Migration
+
+Here's a concrete outline for a framework migration (e.g., Vue to React):
+
+1. **Summary** — One paragraph: what we're doing and why, in 3–4 sentences.
+2. **Motivation** — Pain points with Vue: hiring, ecosystem, maintainability. Include team input.
+3. **Goals & Non-Goals** — What's in scope (new pages, shared components) and explicitly out of scope (legacy admin panel).
+4. **Proposed Architecture** — Component structure, state management, routing. Diagram the target state.
+5. **Migration Strategy** — Strangler pattern, feature flags, phased rollout by route or domain.
+6. **Alternatives** — Staying on Vue, migrating to Svelte, rewriting from scratch—with pros/cons.
+7. **Risks** — Regression risk, timeline slip, team capacity. Mitigations for each.
+8. **Timeline** — Phase 1 (Q2): core shell; Phase 2 (Q3): checkout flow; Phase 3 (Q4): remaining pages.
+9. **Open Questions** — Decisions still needed (e.g., testing strategy, design system compatibility).
+10. **Appendix** — Detailed migration scripts, POC code, references.
+
+This structure provides a roadmap for reviewers and gives you a checklist for completeness. Adapt it to your context—the goal is clarity, consistency, and actionable feedback.

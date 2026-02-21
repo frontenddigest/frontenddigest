@@ -1,0 +1,148 @@
+---
+title: "Design a Calendar / Scheduling Application"
+description: "System design for Google Calendar–style apps: day/week/month views, event overlap handling, drag to create/resize, recurring events, timezones, and multi-calendar overlay."
+date: "2026-02-20"
+author: "Frontend Digest"
+audience: ["senior", "architect"]
+tags: ["system-design", "interview", "calendar", "scheduling"]
+order: 14
+featured: false
+---
+
+Designing a calendar and scheduling application is a complex frontend system design problem. It involves date/time handling, layout algorithms for overlapping events, drag interactions, and performance with dense event sets. Here's a structured approach.
+
+## Requirements Clarification
+
+### Functional Requirements
+
+- **Views**: Day view (hourly slots), week view (7 columns), month view (grid of days with event pills).
+- **Event rendering**: Display events with correct time placement; handle overlapping events with side-by-side or stacked layout.
+- **Drag to create**: Click-and-drag on empty time to create a new event.
+- **Drag to resize**: Drag event bottom edge to extend duration.
+- **Drag to move**: Drag event to new time slot.
+- **Recurring events**: Support daily, weekly, monthly patterns; show instances or expand in view.
+- **Timezone handling**: Display events in user's local timezone; support multi-timezone calendars.
+- **Multi-calendar overlay**: Toggle visibility of multiple calendars (work, personal); color-coding.
+- **Date navigation**: Prev/next buttons, today shortcut, optional date picker jump.
+
+### Non-Functional Requirements
+
+- **Performance**: Render 100+ events in week view without lag; virtualize month view if needed.
+- **Responsiveness**: Week view scrolls horizontally on mobile; day view stacks.
+- **Accessibility**: Keyboard navigation for creating, moving, resizing events; screen reader announcements for dates and events.
+- **Consistency**: Use a single date library (date-fns, Day.js, or Luxon) to avoid timezone bugs.
+
+## High-Level Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  CalendarApp                                                                 │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │ Toolbar: ViewSelector | NavControls | CalendarFilters | TimezonePicker │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │ CalendarView (Day | Week | Month)                                      │  │
+│  │  ┌─────────────────────────────────────────────────────────────────┐   │  │
+│  │  │ DayView: TimeGrid + EventBlocks (positioned by overlap algorithm) │   │  │
+│  │  │ WeekView: 7 columns, same EventBlock layout                       │   │  │
+│  │  │ MonthView: DayCells + EventPills (truncated, "+N more" overflow)   │   │  │
+│  │  └─────────────────────────────────────────────────────────────────┘   │   │
+│  └───────────────────────────────────────────────────────────────────────┘   │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │ useCalendar: view, dateRange, events, overlap layout, drag handlers    │  │
+│  └───────────────────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+Data flow: User selects view/date → compute visible range → fetch events (or filter from cache) → run overlap algorithm → render; drag → update event → persist via API.
+
+## Component Design
+
+### CalendarView (Day / Week / Month)
+
+Switchable view component. Day and week share a `TimeGrid` base: vertical axis = hours (or 15-min slots), horizontal = days. Month view is a 7×N grid of `DayCell` components.
+
+### TimeGrid
+
+Renders horizontal lines for each hour (or configurable granularity). Each column represents a day. Provides a coordinate system: `(date, minutes) → (x, y)` for positioning events. Handles click-and-drag on empty space for create; delegates to `onCreateEvent(start, end)`.
+
+### EventBlock
+
+Positioned absolutely within the grid. Uses `top` and `height` as % of slot height (e.g., 60min slot = 100%). For overlap, uses `left` and `width` from layout algorithm. Supports drag handles for move and resize. Shows title, time, optional location. For recurring, show recurrence icon.
+
+### Overlap Layout Algorithm
+
+Given a list of events in a day sorted by start time, assign columns so overlapping events sit side-by-side. Algorithm: sweep through sorted events; assign each to the first column where it doesn't overlap with an already-placed event. Compute `totalColumns` and `columnIndex`; width = `100% / totalColumns`, left = `columnIndex * width`.
+
+```ts
+interface CalendarEvent {
+  id: string;
+  title: string;
+  start: string; // ISO
+  end: string;
+  calendarId: string;
+  color?: string;
+  recurrence?: { frequency: 'daily' | 'weekly' | 'monthly'; until?: string };
+}
+
+interface OverlapGroup {
+  events: CalendarEvent[];
+  columns: number;
+  layout: Map<string, { column: number; totalColumns: number }>;
+}
+
+function computeOverlapLayout(events: CalendarEvent[]): OverlapGroup {
+  const sorted = [...events].sort((a, b) => 
+    new Date(a.start).getTime() - new Date(b.start).getTime()
+  );
+  const layout = new Map<string, { column: number; totalColumns: number }>();
+  let maxCols = 1;
+  // ... column assignment logic
+  return { events: sorted, columns: maxCols, layout };
+}
+```
+
+## State Management
+
+- **Current view**: `'day' | 'week' | 'month'`.
+- **Visible date range**: Derived from view + current date; e.g., week view = start of week to end.
+- **Events**: Fetched for visible range; use TanStack Query keyed by `[rangeStart, rangeEnd, calendarIds]`. Merge with optimistic updates for drag.
+- **Selected event**: For edit modal or quick view.
+- **Timezone**: User preference; convert all display via date library.
+- **Calendar visibility**: Map of calendarId → boolean; filter events by visible calendars.
+
+## API Design
+
+```
+GET /api/events?start=&end=&calendarIds=
+Response: { events: CalendarEvent[] }
+
+POST /api/events   Body: { title, start, end, calendarId, recurrence? }
+PUT  /api/events/:id  Body: { title?, start?, end?, ... }
+DELETE /api/events/:id
+
+POST /api/events/:id/move  Body: { start, end }  // for recurring: this instance or all
+```
+
+For recurring events, server can return expanded instances for the range, or return master + expansion rules; client expands. Expansion on client reduces API complexity but increases payload for long recurrences.
+
+## Performance Considerations
+
+- **Event fetching**: Fetch only visible range; extend slightly for smooth navigation (e.g., ±1 week). Use `staleTime` to avoid refetch on quick view switches.
+- **Overlap algorithm**: O(n) sweep; memoize per day when events haven't changed.
+- **Month view**: For 100+ events across a month, consider virtualizing day cells or limiting visible pills per day ("+5 more" links to day view).
+- **Drag**: Use CSS transforms for positioning during drag; avoid layout thrash. Debounce API update on drop.
+- **Recurring expansion**: Expand on client for small ranges; for "forever" recurrence, cap instances (e.g., 500).
+
+## Accessibility
+
+- **Keyboard navigation**: Arrow keys to move between days/weeks; Enter to open event. Tab through events in day view.
+- **ARIA**: `role="grid"` for calendar; `aria-label` on each cell with date. Event blocks: `role="button"`, `aria-label` with title and time range.
+- **Focus management**: When opening event modal, trap focus; on close, return to trigger.
+- **Screen reader**: Announce view change and date range. Describe event overlaps (e.g., "3 events at 2pm").
+
+## Trade-offs and Extensions
+
+**Trade-offs**: Expand recurring on client vs. server—client gives flexibility; server reduces payload. Full month load vs. lazy—full simplifies rendering; lazy needed for very dense calendars. Canvas vs. DOM for events—DOM is more accessible; Canvas can handle 1000+ events.
+
+**Extensions**: Add scheduling assistant (find free slots across attendees). Implement time zone floating vs. fixed. Add all-day event section. Support event reminders and notifications. Add color-coding by event type or calendar. Implement drag-and-drop from external source (e.g., email). Add print-friendly view.

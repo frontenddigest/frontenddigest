@@ -1,0 +1,140 @@
+---
+title: "Design a Dynamic Form Builder"
+description: "System design for Typeform/Google Forms–style form builders: schema-driven rendering, field types, validation, conditional logic, multi-step wizard, and submission handling."
+date: "2026-02-20"
+author: "Frontend Digest"
+audience: ["senior", "architect"]
+tags: ["system-design", "interview", "forms", "builder"]
+order: 11
+featured: false
+---
+
+Designing a dynamic form builder is a challenging frontend system design question. It combines schema-driven UI, complex validation pipelines, conditional logic, and robust state management. Here's a structured approach.
+
+## Requirements Clarification
+
+### Functional Requirements
+
+- **Schema-driven rendering**: Forms defined by a JSON schema; render fields based on type (text, select, checkbox, date, file upload).
+- **Field types**: Support text (short/long), single/multi-select, checkbox, radio, date picker, file upload with validation.
+- **Validation**: Sync validation (required, min/max, regex) and async validation (e.g., email uniqueness, username availability).
+- **Conditional logic**: Show/hide fields based on answers (e.g., "If you selected 'Other', show text input").
+- **Multi-step wizard**: Break long forms into steps with progress indicator; optionally one question per screen.
+- **Preview mode**: Render the form as respondents would see it, without edit controls.
+- **Submission**: Collect values, validate, submit to API; handle partial saves and resume.
+
+### Non-Functional Requirements
+
+- **Performance**: Large forms (50+ fields) should render without jank; conditional logic must not cause layout thrashing.
+- **Accessibility**: Full keyboard navigation, clear labels, error announcements, focus management between steps.
+- **Persistence**: Draft state in localStorage or backend for "save and continue later."
+- **Extensibility**: Easy to add new field types without rewriting core logic.
+
+## High-Level Architecture
+
+```
+┌────────────────────────────────────────────────────────────────────────────┐
+│  FormBuilderLayout                                                          │
+│  ┌──────────────────┐  ┌────────────────────────────────────────────────┐  │
+│  │ FormSchemaEditor │  │ FormPreview / FormRender                        │  │
+│  │ (design mode)    │  │  ┌──────────────────────────────────────────┐  │  │
+│  │ - add/remove     │  │  │ FormStep (wizard) or FormPage (single)   │  │  │
+│  │   fields         │  │  │   FieldRenderer (schema → component)     │  │  │
+│  │ - reorder        │  │  │     TextField, SelectField, DateField... │  │  │
+│  └──────────────────┘  │  └──────────────────────────────────────────┘  │  │
+│                        │  ┌──────────────────────────────────────────┐  │  │
+│                        │  │ ValidationEngine (sync + async)            │  │  │
+│                        │  │ ConditionalLogicEvaluator                 │  │  │
+│                        │  └──────────────────────────────────────────┘  │  │
+│                        └────────────────────────────────────────────────┘  │
+└────────────────────────────────────────────────────────────────────────────┘
+```
+
+Data flow: Schema → FieldRenderer registry → render visible fields → user input → validation → conditional evaluation → update visible set → repeat.
+
+## Component Design
+
+### FormSchemaEditor
+
+Design-time UI for building the form. Allows adding fields from a palette, configuring properties (label, placeholder, validation rules), reordering (drag-and-drop), and setting conditional logic (e.g., "show when field X equals Y"). Outputs a schema object.
+
+### FieldRenderer
+
+Registry-based component that maps `field.type` to the correct input component. Uses a lookup table: `{ text: TextField, select: SelectField, checkbox: CheckboxField, date: DateField, file: FileUploadField }`. Passes down `value`, `onChange`, `error`, `disabled`.
+
+### ValidationEngine
+
+Runs sync validators (required, minLength, pattern) immediately on blur or change. Queues async validators (API call) with debounce; surfaces errors when resolved. Returns `{ isValid, errors: Record<fieldId, string> }`.
+
+### ConditionalLogicEvaluator
+
+Given current form values and conditional rules, computes which field IDs should be visible. Rules format: `{ fieldId, condition: { type: 'equals'|'contains'|'exists', targetField, value } }`. Run on every value change; memoize for performance.
+
+```ts
+interface FormFieldSchema {
+  id: string;
+  type: 'text' | 'textarea' | 'select' | 'multiselect' | 'checkbox' | 'radio' | 'date' | 'file';
+  label: string;
+  placeholder?: string;
+  options?: { value: string; label: string }[];
+  validation?: {
+    required?: boolean;
+    minLength?: number;
+    maxLength?: number;
+    pattern?: string;
+    async?: (value: unknown) => Promise<string | null>;
+  };
+  conditional?: { targetField: string; operator: string; value: unknown };
+}
+
+interface FormSchema {
+  id: string;
+  steps?: FormFieldSchema[][];
+  fields: FormFieldSchema[];
+}
+```
+
+## State Management
+
+- **Form schema**: Immutable; stored in context or props. Source of truth for structure.
+- **Form values**: `Record<string, unknown>` keyed by field ID. Updated via `setFieldValue(id, value)`.
+- **Touched/Dirty**: Track which fields have been interacted with for validation triggers.
+- **Validation state**: `Record<string, string>` for errors; update on blur, submit, or async resolution.
+- **Current step**: For wizard, `number`; controls which fields are rendered.
+- **Submission status**: `idle | submitting | success | error`.
+
+Use Zustand or React state with useReducer for complex value updates. Form libraries (React Hook Form, Formik) can wrap the schema-driven layer.
+
+## API Design
+
+```
+GET  /api/forms/:formId          → { schema: FormSchema }
+POST /api/forms/:formId/draft   → { draftId, expiresAt }
+PUT  /api/forms/:formId/draft/:draftId  → save partial values
+POST /api/forms/:formId/submit  → { values: Record<string, unknown> } → { submissionId }
+POST /api/validate/email        → async validation (e.g., uniqueness)
+```
+
+For file uploads: `POST /api/upload` (multipart) → returns URL; store URL in form values.
+
+## Performance Considerations
+
+- **Lazy render conditional fields**: Don't mount hidden fields; unmount when condition false to avoid unnecessary validation runs.
+- **Virtualization**: For single-page forms with 50+ fields, consider virtualizing the field list (rare for forms; usually steps suffice).
+- **Debounce async validation**: 300–500ms after last change before firing API.
+- **Memoize conditional evaluation**: Use `useMemo` with dependency on relevant field values only.
+- **Schema normalization**: Pre-compute field lookup map and conditional dependency graph on schema load.
+
+## Accessibility
+
+- **Field labels**: Every input must have `id` and `<label htmlFor={id}>`; or `aria-label` for icon-only.
+- **Error announcements**: Use `aria-describedby` for error messages; `aria-invalid` when invalid. Consider `aria-live="polite"` for dynamic errors.
+- **Step navigation**: Announce "Step 2 of 5" with `aria-live`. Focus first field when advancing step.
+- **Required fields**: `aria-required="true"`; visually indicate with asterisk.
+- **File upload**: Ensure drag zone has `role="button"`, `tabindex="0"`, keyboard activation; announce selected file names.
+
+## Trade-offs and Extensions
+
+**Trade-offs**: Full schema in memory vs. lazy-load steps—full load simplifies conditional logic across steps but increases initial payload. Inline validation vs. on submit—inline improves UX but can feel noisy; balance with only showing errors after first submit attempt. Client-side vs. server-side validation—always validate server-side; client-side for speed.
+
+**Extensions**: Add branching logic (skip to step N based on answer). Implement form versioning for A/B tests. Add logic for prefilling from URL params or authenticated user. Support file upload with virus scanning webhook. Add progress persistence to backend for cross-device resume. Implement real-time collaboration for schema editing.

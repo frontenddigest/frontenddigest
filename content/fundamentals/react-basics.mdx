@@ -1,0 +1,123 @@
+---
+title: "React Basics"
+description: "Introduction to React: JSX, components, props, state, events, conditional rendering, lists, and core hooks (useState, useEffect) for building UIs."
+date: "2026-02-20"
+author: "Frontend Digest"
+audience: ["beginner"]
+tags: ["react", "components", "jsx"]
+order: 7
+featured: false
+---
+
+React is a JavaScript library for building user interfaces. It uses a component-based model, declarative updates, and a virtual DOM to make UI development predictable and maintainable. This guide covers the fundamentals you need to start building React applications.
+
+## What is React and Why Use It
+
+### The Component Model
+
+React organizes UIs into **components**—reusable, self-contained pieces that encapsulate structure, logic, and styling. Components compose like LEGO blocks: you build small pieces, combine them, and create complex interfaces. This model scales well for large applications and teams.
+
+### Declarative UI
+
+Instead of manually manipulating the DOM (imperative), you describe what the UI should look like for a given state. React figures out how to update the DOM efficiently. When state changes, React re-renders the affected components and reconciles the virtual DOM with the real DOM. You focus on *what*; React handles *how*.
+
+## JSX Syntax and Expressions
+
+### Writing JSX
+
+JSX looks like HTML but it's JavaScript. Every tag becomes a function call—`<div>` becomes `React.createElement('div', ...)`. Use camelCase for attributes: `className` instead of `class`, `onClick` instead of `onclick`. Self-closing tags like `<img />` are required when there's no children.
+
+### Embedding JavaScript
+
+Wrap JavaScript expressions in `{}`. You can embed variables, function calls, or ternaries. JSX expressions must evaluate to a single element or a fragment (`<>...</>`). Return `null` to render nothing. Avoid putting objects directly in JSX for display—they aren't rendered as text. Use `{JSON.stringify(obj)}` for debugging if needed.
+
+## Components: Function Components
+
+### Defining Components
+
+Function components are JavaScript functions that return JSX. They're the standard in modern React. Start with a capital letter so React treats them as components, not built-in HTML elements. Export them for use elsewhere.
+
+```jsx
+function Greeting({ name }) {
+  return <h1>Hello, {name}!</h1>;
+}
+```
+
+### Composing Components
+
+Import and use components like HTML tags. Pass data via props. Nest components to build hierarchies. Keep components small and focused—if a component does too much, split it.
+
+## Props and Children
+
+### Passing Props
+
+Props are read-only inputs to a component. They flow down from parent to child. Access them as the first function parameter: `function Card({ title, description })`. Use destructuring for clarity. Props can be strings, numbers, arrays, objects, or even functions (callbacks).
+
+### The children Prop
+
+Content between opening and closing tags becomes the `children` prop. Use `{children}` in your component to render it. Children can be elements, strings, or arrays. This enables wrapper components like layouts and cards.
+
+## State with useState
+
+### Declaring State
+
+`useState` returns a value and a setter. Call it at the top level of your component—never inside conditionals or loops. The initial value is passed once; on re-renders, React returns the current state. Updating state triggers a re-render.
+
+```jsx
+const [count, setCount] = useState(0);
+```
+
+### Updating State
+
+Call the setter with a new value, or with a function that receives the previous value and returns the next. Use the function form when the next state depends on the previous (e.g., incrementing). State updates are asynchronous—don't expect the new value immediately after calling the setter.
+
+## Handling Events
+
+### Event Handlers
+
+Pass functions to event attributes: `onClick={handleClick}`. Use camelCase. The handler receives a synthetic event object. Call `e.preventDefault()` when you need to suppress default behavior (e.g., form submission). Don't call the function in JSX—`onClick={handleClick}` passes the function; `onClick={handleClick()}` would call it immediately on render.
+
+### Passing Arguments
+
+Wrap in an arrow function: `onClick={() => handleDelete(id)}`. Or use a curried function. Avoid creating new functions in render when they cause unnecessary child re-renders—useCallback can help in those cases (covered in advanced patterns).
+
+## Conditional Rendering
+
+### Ternaries and &&
+
+Use ternary operators for if/else: `{isLoggedIn ? <Dashboard /> : <Login />}`. Use `&&` for single-branch conditions: `{hasError && <ErrorMessage />}`. Be careful with `&&`—falsy numbers like `0` will render. Use `{count > 0 && <Badge count={count} />}` to avoid that.
+
+### Early Returns
+
+Return `null` to render nothing. Use early returns to simplify component logic: `if (!user) return null;` before the main return. This keeps the JSX clean and avoids deeply nested conditionals.
+
+## Lists and Keys
+
+### Rendering Lists
+
+Map over arrays to produce elements: `{items.map(item => <li key={item.id}>{item.name}</li>)}`. Each item in a list needs a unique `key` prop. Keys help React identify which items changed, were added, or removed—they're essential for correct list updates.
+
+### Choosing Keys
+
+Use stable, unique identifiers (IDs from your data). Avoid array indices as keys when the list can be reordered, filtered, or when items can be inserted—it can cause bugs and poor performance. Keys don't get passed to the component as a prop.
+
+## Basic Hooks: useState and useEffect
+
+### useState Recap
+
+`useState` manages local component state. It's the foundation for interactive UIs. Use multiple useState calls for independent values, or consider useReducer for complex state with multiple sub-values and transitions.
+
+### useEffect for Side Effects
+
+`useEffect` runs after render. Use it for fetching data, subscriptions, timers, or DOM manipulation. Pass a function and an optional dependency array. Without deps, it runs after every render. With `[]`, it runs once after mount. With `[a, b]`, it runs when `a` or `b` changes. Return a cleanup function if your effect sets up something that needs teardown (e.g., clearing a timeout or unsubscribing).
+
+```jsx
+useEffect(() => {
+  const id = setInterval(() => setCount(c => c + 1), 1000);
+  return () => clearInterval(id); // cleanup
+}, []);
+```
+
+---
+
+React's learning curve rewards investment. Start with function components, props, and useState. Add useEffect when you need side effects. Build small, compose them together, and gradually explore more advanced patterns as your needs grow.

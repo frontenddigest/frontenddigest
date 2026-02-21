@@ -1,0 +1,161 @@
+---
+title: "Caching Strategies for the Frontend"
+description: "HTTP headers, browser cache layers, CDN, application-level caching, service workers, and common pitfalls."
+date: "2026-02-20"
+author: "Frontend Digest"
+audience: ["senior", "architect"]
+tags: ["caching", "performance", "service-workers"]
+order: 10
+featured: false
+---
+
+Caching is one of the most impactful performance levers—and one of the most misunderstood. Frontend architects need to understand the full stack: HTTP headers, browser behavior, CDNs, application caches, and service workers. Get it right and your app feels instant; get it wrong and users see stale data or broken updates.
+
+## HTTP Caching Headers: What Frontend Devs Need to Know
+
+### Cache-Control
+
+`Cache-Control` is the primary directive. Key values:
+
+- `max-age=3600` — Cache for 1 hour. The browser (and CDNs) can serve this without revalidating.
+- `no-cache` — Must revalidate with the server before using cached copy. Not "don't cache"—it means "always check, use cache if still valid."
+- `no-store` — Don't cache at all. For sensitive data.
+- `private` vs `public` — `private` means only the browser can cache; `public` allows shared caches (CDN, proxies).
+- `stale-while-revalidate` — Serve stale content while fetching fresh in background.
+
+```http
+Cache-Control: public, max-age=3600, stale-while-revalidate=86400
+```
+
+### ETag and Last-Modified
+
+Conditional requests: the server sends `ETag` or `Last-Modified`. On subsequent requests, the client sends `If-None-Match` or `If-Modified-Since`. If content hasn't changed, the server returns `304 Not Modified`—no body, saving bandwidth. Frontends typically don't set these (the server does), but understanding them helps debug "why is my API not cached?"
+
+## Browser Cache Layers
+
+### Memory Cache
+
+The fastest layer. Short-lived, cleared when the tab closes. Used for same-origin requests and small resources. No configuration—browser-managed.
+
+### Disk Cache
+
+Persists across sessions. Used for larger resources and cross-origin assets. Subject to eviction under storage pressure. Configured indirectly via `Cache-Control`.
+
+### Service Worker Cache
+
+Full control. You decide what to cache and when to serve from cache vs network. Persists until you clear it. Enables offline support and custom strategies.
+
+## CDN Caching and Cache Invalidation
+
+### How CDNs Cache
+
+CDNs cache at the edge, close to users. They respect `Cache-Control` and `Vary`. Cache keys typically include URL and sometimes `Vary` headers (e.g., `Accept-Encoding`). A cache "hit" at the edge avoids the origin entirely.
+
+### Cache Invalidation Strategies
+
+**Content hashing in filenames:** `main.abc123.js` — when code changes, the filename changes, so the cache key changes. No explicit invalidation needed. Standard for JS/CSS bundles.
+
+**Explicit purge:** CDNs offer purge APIs. Invalidate by URL or tag when you deploy. Use when you can't change filenames (e.g., API responses).
+
+**Short TTL + revalidation:** Use `max-age=60` for semi-dynamic content. Accept some staleness in exchange for fewer purges.
+
+**Cache tagging:** Tag resources (e.g., `x-cache-tag: products`) and purge by tag when product data changes. More granular than URL purge.
+
+## Application-Level Caching
+
+### React Query / SWR: Stale-While-Revalidate
+
+These libraries cache API responses in memory. Default: serve cached data immediately (stale), refetch in background, update UI when fresh data arrives. `staleTime` controls how long data is considered fresh before background refetch. Perfect for lists, dashboards, and most read-heavy UIs.
+
+```tsx
+// React Query: 5 min stale time, refetch on window focus
+const { data } = useQuery({
+  queryKey: ['products'],
+  queryFn: fetchProducts,
+  staleTime: 5 * 60 * 1000,
+  refetchOnWindowFocus: true,
+});
+```
+
+### Normalized Caches
+
+Store entities by ID in a flat structure. When a list returns `[{ id: 1, name: 'A' }, ...]`, you cache each entity. Other queries that reference the same entities can use this cache. Redux Toolkit Query and Apollo support normalization; React Query can be layered with a normalized cache (e.g., via `structuralSharing` or custom logic).
+
+## Service Worker Caching Strategies
+
+### Cache-First
+
+Check cache; if hit, serve. If miss, fetch from network and cache. Best for immutable assets: hashed JS/CSS, fonts, images. Never needs network for repeat visits.
+
+```js
+self.addEventListener('fetch', (event) => {
+  if (event.request.url.includes('/static/')) {
+    event.respondWith(
+      caches.match(event.request).then((cached) => cached || fetch(event.request))
+    );
+  }
+});
+```
+
+### Network-First
+
+Try network; if fail or slow, fall back to cache. Best for API calls and dynamic content. Ensures freshness when online.
+
+### Stale-While-Revalidate
+
+Serve from cache immediately, fetch in background, update cache for next time. Good balance for assets that can be slightly stale: app shell, JSON configs. Workbox provides this as `StaleWhileRevalidate`.
+
+## Cache Key Design and Cache Busting
+
+### Designing Cache Keys
+
+Keys should reflect what makes the response unique: URL, method, and relevant headers (e.g., `Accept-Language`). Avoid including volatile headers (e.g., `Authorization`) in keys for shared caches—they make responses user-specific.
+
+### Cache Busting with Content Hashing
+
+Build tools (Vite, Webpack) emit `[name].[contenthash].js`. Change the file → new hash → new URL → cache miss. No manual invalidation. Use for all long-lived static assets.
+
+### Query Params for Cache Busting (Legacy)
+
+`script.js?v=123` — changing `v` forces a new request. Less reliable than content hashing (some proxies ignore query params). Prefer content hashing for builds.
+
+## IndexedDB for Offline Data Persistence
+
+### When to Use IndexedDB
+
+For structured data that must survive reloads and work offline: user drafts, offline queues, large datasets. LocalStorage is synchronous and size-limited; IndexedDB is async and can store much more. Libraries like `idb` or `Dexie.js` simplify the API.
+
+### Integration with Data Libraries
+
+React Query and SWR can persist to IndexedDB via plugins. Cache survives restarts. Useful for offline-first apps or reducing repeat API calls on app load.
+
+## Common Caching Bugs and Debugging
+
+### Stale Content After Deploy
+
+**Cause:** Long `max-age` without cache busting, or CDN serving old version.
+
+**Fix:** Content-hash filenames for assets. Purge CDN on deploy. Use `no-cache` or short `max-age` for HTML (the entry point) so it fetches fresh and pulls new asset URLs.
+
+### Wrong User Seeing Another User's Data
+
+**Cause:** Caching a response that includes user-specific data with a shared cache key (e.g., `Cache-Control: public` on an authenticated API).
+
+**Fix:** Use `Cache-Control: private` or `no-store` for user-specific responses. Never cache `Authorization` header in shared caches.
+
+### Inconsistent State Across Tabs
+
+**Cause:** In-memory caches (React Query, Redux) are per-tab. Tab A fetches; Tab B has stale in-memory state.
+
+**Fix:** Use `BroadcastChannel` or `storage` events to sync. Or accept inconsistency and refetch on focus. For critical shared state, consider a shared worker or IndexedDB with change notifications.
+
+### Debugging Techniques
+
+- **DevTools Network tab:** Check response headers (`Cache-Control`, `ETag`). Inspect "Size" column—"(memory cache)" or "(disk cache)" means served from cache.
+- **Disable cache:** Check "Disable cache" during development to avoid confusion.
+- **Service Worker:** Application tab → Service Workers. Unregister or "Update" to test fresh behavior. Clear storage to reset caches.
+- **Lighthouse:** Audits include cache recommendations—optimal TTL, cacheability of resources.
+
+---
+
+Caching is a system, not a single knob. Align HTTP headers, CDN config, application cache, and service worker strategy with your data's volatility and your users' expectations. When in doubt, err toward shorter TTLs for dynamic data and content hashing for static assets.

@@ -1,0 +1,72 @@
+---
+title: "Micro-Frontends"
+description: "When and how to adopt micro-frontends: implementation approaches, trade-offs, and common challenges."
+date: "2026-02-20"
+author: "Frontend Digest"
+audience: ["senior", "architect", "founder"]
+tags: ["micro-frontends", "architecture", "scaling"]
+order: 2
+featured: false
+---
+
+Micro-frontends extend the microservices idea to the frontend: instead of one monolithic application, you build a shell that loads and orchestrates multiple independent "mini-apps," each owned and deployed by different teams. The approach has clear benefits and real costs—understanding both is essential before adoption.
+
+## What Are Micro-Frontends?
+
+A micro-frontend architecture splits a frontend into semi-independent applications. Each micro-frontend typically maps to a business domain or team (e.g., checkout, product catalog, user profile). Teams can develop, test, and deploy their slice independently, using different frameworks or technologies if needed.
+
+The host application (shell) is responsible for loading micro-frontends, routing between them, and providing shared concerns like authentication, theming, and navigation. Micro-frontends communicate via events, shared state, or URL parameters rather than direct imports.
+
+## When to Use Micro-Frontends
+
+Micro-frontends make sense when:
+
+- **Multiple teams** work on distinct areas of the same product and need independence in release cycles and tech choices.
+- **Legacy migration** is underway—you can incrementally replace parts of an old app without a big-bang rewrite.
+- **Scale and autonomy** matter—teams can own their full vertical (UI + API) and ship without coordinating with everyone.
+
+They are **less suitable** when:
+
+- The team is small and the product is cohesive—a monolith is simpler to build and operate.
+- Strong design consistency and shared component reuse are critical—fragmentation can hurt UX.
+- Performance budgets are tight—loading multiple apps adds overhead.
+
+## Implementation Approaches
+
+### Iframes
+
+The simplest approach: each micro-frontend runs in its own iframe. Isolation is strong—no CSS or JS collisions—but you lose shared context. Routing, deep linking, and responsive layout across iframes are cumbersome. Use iframes for embedding third-party widgets or when true isolation is required (e.g., legacy apps you can't refactor).
+
+### Web Components
+
+Wrap each micro-frontend as a Custom Element. The host loads the component and renders it like `<product-catalog />`. Web Components provide style encapsulation via Shadow DOM and framework-agnostic interfaces. The downside: bundling, hydration, and framework interoperability require careful setup. Best when you want framework diversity with a stable, standards-based integration point.
+
+### Module Federation
+
+Module Federation (e.g., Webpack 5, Vite) lets you share code and load remote modules at runtime. The host application dynamically imports components from remote builds. Each micro-frontend is built independently and exposed as a federated module. This approach supports shared dependencies, avoids iframe limitations, and integrates well with modern bundlers. Complexity is higher—version compatibility and build orchestration need attention.
+
+### Build-Time Integration
+
+Alternatively, micro-frontends can be composed at build time. Each team publishes a package; the shell app imports and bundles them. Deployment is still independent if you use a monorepo with selective builds or separate package versions. You lose runtime flexibility (e.g., loading teams on demand) but gain simpler mental models and tooling.
+
+## Trade-offs and Challenges
+
+### Consistency and Design Systems
+
+Independent teams can drift in design and behavior. Invest in a shared design system, tokens, and component library. Establish governance—whether via shared packages, documentation, or design reviews—so the product feels cohesive.
+
+### Performance and Bundle Size
+
+Multiple apps mean multiple bundles, runtimes, and duplicated dependencies. Use module federation or shared chunk strategies to avoid loading React (or your framework) multiple times. Lazy-load micro-frontends by route. Set performance budgets and monitor Core Web Vitals.
+
+### Testing and Integration
+
+End-to-end testing across micro-frontends is harder. Ensure the shell and each micro-frontend have clear contracts. Use integration tests for critical flows. Consider visual regression and accessibility tests as part of the pipeline.
+
+### Operational Complexity
+
+More apps mean more build pipelines, deployments, and version combinations. Standardize tooling, CI/CD, and monitoring. Document how teams integrate and how to debug cross-app issues.
+
+---
+
+Micro-frontends are a tool for organizational scaling and incremental migration, not a default choice. Use them when team autonomy and independence clearly outweigh the added complexity. Start small—perhaps a single new area as a micro-frontend—and expand only when the benefits are proven.

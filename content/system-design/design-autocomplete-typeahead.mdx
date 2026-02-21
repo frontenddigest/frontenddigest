@@ -1,0 +1,125 @@
+---
+title: "Design Autocomplete / Typeahead Search"
+description: "System design for building a Google-like autocomplete search component: debouncing, caching, keyboard navigation, race conditions, and mobile considerations."
+date: "2026-02-20"
+author: "Frontend Digest"
+audience: ["senior", "architect"]
+tags: ["system-design", "interview", "search", "autocomplete"]
+order: 1
+featured: true
+---
+
+Designing an autocomplete or typeahead search component is a common frontend system design question. It exercises your understanding of async patterns, performance optimization, and accessibility. Here's how to approach it in an interview.
+
+## Requirements Clarification
+
+### Functional Requirements
+
+- As the user types, show a dropdown of matching suggestions.
+- User can select a suggestion with mouse/tap or keyboard (Enter, arrow keys).
+- Selecting a suggestion either navigates or populates the input.
+- Clear the suggestions when the input is blurred (or after selection).
+- Optional: show recent searches, trending topics, or category groupings.
+
+### Non-Functional Requirements
+
+- **Latency**: Suggestions should appear within 100–300ms of user input.
+- **Debouncing**: Avoid firing a request on every keystroke—typically 200–400ms delay.
+- **Caching**: Cache results per query to avoid redundant network calls.
+- **Race conditions**: Only show results for the most recent request; ignore stale responses.
+- **Accessibility**: Full keyboard navigation, screen reader support, ARIA attributes.
+- **Mobile**: Touch-friendly, consider reduced motion, virtual keyboard behavior.
+
+## High-Level Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  AutocompleteContainer                                  │
+│  ┌─────────────────┐  ┌─────────────────────────────┐  │
+│  │ SearchInput     │  │ SuggestionsDropdown         │  │
+│  │ (debounced)     │─►│ (virtualized if large list) │  │
+│  └─────────────────┘  └─────────────────────────────┘  │
+│           │                         ▲                    │
+│           ▼                         │                    │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ useAutocomplete hook                             │    │
+│  │ - query state, suggestions, loading, selectedIdx │    │
+│  │ - fetchSuggestions (with abort), cache (Map)     │    │
+│  └─────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────┘
+```
+
+Data flows: user types → debounce → fetch (or cache hit) → update suggestions → user selects or blurs.
+
+## Component Design
+
+### SearchInput
+
+Wraps a native `<input>`. Handles `onChange` (debounced), `onKeyDown` (ArrowUp/Down, Enter, Escape), and `onBlur` (with a short delay so clicks on suggestions register). Exposes a ref for focus management.
+
+### SuggestionsDropdown
+
+Renders a list of suggestions. Each item highlights the matched portion of the query (e.g., "goo**gle**"). Uses `role="listbox"` and `role="option"`. Tracks hover and keyboard-selected index for visual highlight.
+
+### useAutocomplete Hook
+
+Centralizes logic: debounced query, fetch function, cache (Map with query → suggestions), loading state, selected index, and logic to handle race conditions via `AbortController` or request IDs.
+
+```ts
+interface UseAutocompleteOptions {
+  fetchSuggestions: (query: string) => Promise<Suggestion[]>;
+  debounceMs?: number;
+  minChars?: number;
+}
+
+interface UseAutocompleteResult {
+  query: string;
+  setQuery: (q: string) => void;
+  suggestions: Suggestion[];
+  isLoading: boolean;
+  selectedIndex: number;
+  setSelectedIndex: (n: number) => void;
+  selectSuggestion: (s: Suggestion) => void;
+}
+```
+
+## State Management
+
+- **query**: Local state (or controlled from parent). Drives fetch and dropdown visibility.
+- **suggestions**: Server state. Stored in hook state; optionally persisted in cache (Map).
+- **selectedIndex**: UI state. Reset when suggestions change; clamped between 0 and suggestions.length - 1.
+- **loading**: Derived from in-flight request.
+- **cache**: In-memory Map. Key = normalized query (trimmed, lowercased); value = suggestions + timestamp. Optional TTL for eviction.
+
+## API Design
+
+Typically a single endpoint:
+
+```
+GET /api/suggestions?q=goo&limit=10
+Response: { suggestions: [{ id, text, type?, metadata? }] }
+```
+
+Keep responses small. Use pagination or a limit cap (e.g., 10). Consider returning highlighted fragments or let the client do client-side highlighting for flexibility.
+
+## Performance Considerations
+
+- **Debouncing**: 200–400ms prevents request spam. Use `useDebouncedValue` or `lodash.debounce`. Cancel previous timeout on new input.
+- **Caching**: In-memory Map keyed by query. Reduces API calls for repeated or backspaced queries.
+- **Race conditions**: Use `AbortController`—abort the previous request when a new one fires. Or use a request ID: only apply results if the response’s ID matches the latest request.
+- **Virtualization**: If suggestions can be 100+ items, use `react-window` or `@tanstack/react-virtual` for the dropdown.
+- **Highlighting**: Prefer CSS or simple string replacement over heavy regex. Consider `dangerouslySetInnerHTML` only when sanitized.
+
+## Accessibility
+
+- **Keyboard**: ArrowUp/Down to move selection; Enter to select; Escape to close.
+- **ARIA**: `aria-expanded`, `aria-activedescendant` on input; `role="listbox"` and `role="option"` on list; `aria-selected` on active option.
+- **Live region**: Use `aria-live="polite"` to announce count when results load.
+- **Focus**: On open, move focus to input or first suggestion based on product requirements. On close, return focus to input.
+- **Screen readers**: Ensure the relationship between input and list is clear (`aria-controls`, `aria-owns`).
+
+## Trade-offs and Extensions
+
+**Trade-offs**: Aggressive debouncing improves performance but can feel sluggish. Shorter debounce (100ms) feels snappier but increases server load. Cache size vs. memory—consider LRU eviction.
+
+**Extensions**: Add analytics (impressions, selections). Support recent searches (localStorage). Add categories or structured results (people, places). Implement server-side highlighting vs. client-side. Add prefetch for popular queries. Consider GraphQL or federated search for multiple backends.

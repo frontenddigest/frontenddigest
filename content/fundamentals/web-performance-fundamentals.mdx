@@ -1,0 +1,114 @@
+---
+title: "Web Performance Fundamentals"
+description: "Understand Core Web Vitals, measuring tools, image optimization, caching, and critical rendering path—build faster, more responsive web applications."
+date: "2026-02-20"
+author: "Frontend Digest"
+audience: ["beginner", "senior"]
+tags: ["performance", "core-web-vitals", "optimization"]
+order: 10
+featured: true
+---
+
+Performance directly impacts user experience, conversion, and SEO. Google uses Core Web Vitals in ranking; users abandon slow sites. Whether you're shipping a marketing page or a complex SPA, understanding performance fundamentals helps you ship faster experiences and debug issues when they arise.
+
+## Core Web Vitals: What They Measure and Why
+
+Core Web Vitals are three metrics Google uses to quantify user experience. They measure loading speed, interactivity, and visual stability.
+
+### Largest Contentful Paint (LCP)
+
+**LCP** measures loading performance—how long until the largest visible content element (hero image, heading block, video poster) renders. Target: under 2.5 seconds. LCP reflects server response time, render-blocking resources, and client-side rendering delays. Optimize by reducing TTFB, inlining critical CSS, and ensuring above-the-fold content loads first.
+
+### First Input Delay (FID) and Interaction to Next Paint (INP)
+
+**FID** (being replaced by **INP**) measures responsiveness—the delay between a user's first interaction and the browser's ability to respond. Long tasks block the main thread; when the user clicks during a block, nothing happens. Target: under 100ms. Optimize by breaking up long JavaScript tasks, using `requestIdleCallback`, and deferring non-critical work. INP considers all interactions, not just the first, and better reflects real-world responsiveness.
+
+### Cumulative Layout Shift (CLS)
+
+**CLS** measures visual stability—unexpected layout jumps as content loads. Images without dimensions, injected ads, or late-loading fonts cause content to shift. Target: under 0.1. Fix by setting `width`/`height` (or `aspect-ratio`) on images, reserving space for dynamic content, and using `font-display: optional` or `swap` with careful fallbacks so layout doesn't jump when fonts load.
+
+## Measuring Performance
+
+You can't improve what you don't measure. Use a combination of lab and field data.
+
+### Lighthouse and Chrome DevTools
+
+**Lighthouse** runs in Chrome DevTools or CI. It simulates mobile/desktop loads and reports Core Web Vitals, opportunities, and diagnostics. Lab data is consistent but doesn't reflect real networks or devices. Use it for regressions and before/after comparisons.
+
+**Chrome DevTools** Performance panel records real interactions—identify long tasks, layout thrash, and expensive repaints. Network panel shows waterfall, priorities, and payload sizes. Use the Coverage tab to find unused CSS/JS.
+
+### WebPageTest and Real User Monitoring
+
+**WebPageTest** runs tests from real locations on real devices. You get filmstrip views, waterfall charts, and Core Web Vitals. Ideal for comparing CDN regions or debugging "works on my machine" issues.
+
+**Real User Monitoring (RUM)**—tools like Google Analytics, Vercel Analytics, or Datadog—collect performance data from actual users. Field data reflects true experience across devices and networks. Combine lab tests for development with RUM for production monitoring.
+
+## Image Optimization
+
+Images often dominate page weight. Proper formats, sizing, and loading strategies yield major wins.
+
+### Formats, Lazy Loading, and Responsive Images
+
+**Formats**: Prefer **WebP** or **AVIF** for modern browsers; they offer 25–50% smaller files than JPEG/PNG. Use `<picture>` with `<source type="image/avif">` and fallbacks. Serve responsive sizes—a 3000px hero image on mobile wastes bandwidth.
+
+**Lazy loading**: Add `loading="lazy"` to images below the fold. Native lazy loading defers loading until near viewport. For critical above-the-fold images, omit the attribute or use `loading="eager"`.
+
+**Responsive images**: Use `srcset` and `sizes` so the browser picks the right file. Example: `srcset="small.jpg 480w, medium.jpg 800w, large.jpg 1200w" sizes="(max-width: 600px) 100vw, 50vw"`—delivers smaller files on small screens.
+
+## Code Splitting and Bundle Size
+
+Large JavaScript bundles delay interactivity. Split code so users only load what they need.
+
+### Route-Based and Component-Based Splitting
+
+**Route-based splitting**: Lazy-load routes with dynamic `import()`. In React Router: `const Dashboard = lazy(() => import('./Dashboard'))`. Each route becomes a separate chunk.
+
+**Component-based splitting**: Lazy-load heavy components (modals, charts, editors) that aren't needed immediately. Combine with Suspense for loading states.
+
+**Bundle analysis**: Use `webpack-bundle-analyzer` or `rollup-plugin-visualizer` to see what's in your bundles. Identify duplicate dependencies, large libraries, and candidates for removal or replacement. Tree-shaking helps but only if you import named exports from ESM-compatible libraries.
+
+## Caching Strategies
+
+Caching reduces repeat loads. Layer browser cache, CDN, and service workers.
+
+### Browser Cache and CDN
+
+**Browser cache**: Set `Cache-Control` headers. `max-age=31536000` for hashed assets (e.g., `main.abc123.js`)—they're immutable. For HTML, use `no-cache` or short `max-age` so users get fresh content. `stale-while-revalidate` lets the browser serve stale content while revalidating in the background.
+
+**CDN**: Serve static assets from edge locations. Reduces latency and offloads origin. Configure cache rules for different file types and respect `Vary` for content negotiation.
+
+### Service Workers
+
+**Service workers** enable offline support and programmatic caching. Cache-first for assets, network-first for API calls, or stale-while-revalidate for hybrid. Workbox simplifies implementation. Be careful with cache invalidation—version your cache names and clean up old caches on activation.
+
+## Critical Rendering Path Optimization
+
+The critical rendering path is the sequence of steps from receiving HTML to rendering pixels. Blocking resources delay First Contentful Paint (FCP) and LCP.
+
+**Priorities**: Inline critical CSS for above-the-fold content; defer or async-load non-critical CSS. Use `defer` for scripts so HTML parses first; avoid render-blocking scripts in the head when possible.
+
+**Preload**: Use `<link rel="preload">` for key resources (fonts, hero image, critical JS). Preload hints the browser to fetch early. Preconnect for third-party origins you'll need soon.
+
+## Font Loading Strategies
+
+Fonts cause FOIT (invisible text) or FOUT (flash of unstyled text) if not managed. Both can hurt CLS.
+
+### font-display and Preloading
+
+**`font-display: swap`**—show fallback immediately, swap when font loads. Prevents FOIT but can cause layout shift. Use a fallback font with similar metrics to reduce CLS.
+
+**`font-display: optional`**—use the font only if it loads quickly (typically ~100ms). Otherwise keep fallback. Good for body text where consistency matters more than the exact font.
+
+**Preloading**: `<link rel="preload" href="font.woff2" as="font" crossorigin>` fetches the font early. Use for critical text fonts to reduce FOUT delay.
+
+## Third-Party Script Impact
+
+Analytics, ads, chat widgets, and social embeds add latency and main-thread work. A single heavy third-party script can tank LCP and INP.
+
+**Audit**: Use Lighthouse and the "Reduce the impact of third-party code" audit. Identify which scripts are slow.
+
+**Mitigation**: Load third parties async or deferred, after your own critical content. Use facade patterns (e.g., static YouTube thumbnails that load the iframe on click). Consider self-hosting analytics or using privacy-first alternatives with smaller payloads. Set reasonable timeouts—if a third party doesn't load in 3 seconds, skip it or show a fallback.
+
+---
+
+Performance is a feature. Start with Core Web Vitals, measure in lab and field, and iterate on the biggest wins—often images, JavaScript, and third parties. Small changes compound; a 100ms improvement in LCP can meaningfully affect user satisfaction and business metrics.

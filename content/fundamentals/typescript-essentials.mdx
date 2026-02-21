@@ -1,0 +1,219 @@
+---
+title: "TypeScript Essentials"
+description: "Learn why TypeScript, basic types, interfaces vs types, unions and intersections, generics, type narrowing, utility types, and TypeScript with React."
+date: "2026-02-20"
+author: "Frontend Digest"
+audience: ["beginner", "senior"]
+tags: ["typescript", "types", "javascript"]
+order: 12
+featured: false
+---
+
+TypeScript adds a static type system on top of JavaScript. Types catch bugs at compile time, improve editor support, and serve as living documentation. Whether you're adopting TypeScript for a new project or improving an existing codebase, understanding these essentials will make you productive and help you leverage the type system effectively.
+
+## Why TypeScript
+
+TypeScript isn't "JavaScript with types"—it's a typed superset that compiles to JavaScript. The benefits compound as projects grow.
+
+### Benefits Over Plain JavaScript
+
+**Early error detection**: Typos, wrong argument types, and missing properties surface in your editor and at build time instead of in production. A function expecting `{ id: number }` will reject `{ id: "abc" }` before the code runs.
+
+**Better tooling**: Autocomplete, go-to-definition, and refactoring work reliably because the compiler knows the shape of your data. Rename a prop—TypeScript finds every usage.
+
+**Self-documenting code**: Types describe function signatures, object shapes, and API contracts. New team members (and future you) understand interfaces without reading implementation.
+
+**Safer refactoring**: Change a type and fix the resulting errors. The compiler guides you to every affected call site. Refactors that would be risky in JavaScript become routine.
+
+## Basic Types
+
+TypeScript infers types when possible, but explicit annotations clarify intent and catch mistakes.
+
+### Primitives, Arrays, and Tuples
+
+**Primitives**: `string`, `number`, `boolean`, `null`, `undefined`. Use them directly: `let count: number = 0`.
+
+**Arrays**: `string[]` or `Array<string>` for homogeneous arrays. `(string | number)[]` for mixed. Prefer `readonly` for arrays you won't mutate.
+
+**Tuples**: Fixed-length arrays with typed positions: `[string, number]` for `["Alice", 30]`. Useful for return values, React `useState`, or coordinate pairs. Access by index; excess properties are restricted.
+
+```typescript
+const pair: [string, number] = ["age", 25];
+const [label, value] = pair;
+```
+
+**`any`** opts out of type checking. Avoid it—use `unknown` when the type is truly unknown and narrow before use.
+
+## Interfaces vs Type Aliases
+
+Both describe object shapes. The choice is mostly stylistic, with a few technical differences.
+
+### Interfaces
+
+Interfaces are extensible: you can declare the same interface multiple times and they merge. Good for public APIs and library definitions.
+
+```typescript
+interface User {
+  id: string;
+  name: string;
+}
+interface User {
+  email?: string;  // merged
+}
+```
+
+### Type Aliases
+
+Types can represent unions, intersections, and mapped types. They don't merge. Use for complex compositions.
+
+```typescript
+type ID = string | number;
+type Coord = { x: number; y: number };
+```
+
+**When to use which**: Prefer `interface` for object shapes; use `type` for unions, tuples, and utility-based compositions. Many codebases use both—pick one consistently per concept.
+
+## Union and Intersection Types
+
+Unions and intersections compose types in powerful ways.
+
+### Union Types
+
+A union (`A | B`) means a value is one of several types. Common for props that accept multiple shapes, or function parameters that can be string or number.
+
+```typescript
+type Status = "pending" | "success" | "error";
+function handleStatus(s: Status) { /* ... */ }
+```
+
+Discriminated unions use a common literal field to narrow:
+
+```typescript
+type Result = 
+  | { kind: "ok"; data: string }
+  | { kind: "err"; message: string };
+function process(r: Result) {
+  if (r.kind === "ok") console.log(r.data);
+  else console.log(r.message);
+}
+```
+
+### Intersection Types
+
+An intersection (`A & B`) means a value has all properties of both types. Use for mixins or extending objects.
+
+```typescript
+type Named = { name: string };
+type Aged = { age: number };
+type Person = Named & Aged;  // { name: string; age: number }
+```
+
+## Generics
+
+Generics parameterize types so one definition works for many shapes.
+
+### Basics and Common Patterns
+
+```typescript
+function identity<T>(x: T): T {
+  return x;
+}
+const n = identity(42);       // number
+const s = identity("hello");  // string
+```
+
+**Generic constraints** limit what `T` can be:
+
+```typescript
+function getProp<T, K extends keyof T>(obj: T, key: K): T[K] {
+  return obj[key];
+}
+```
+
+**Common patterns**: `Array<T>`, `Promise<T>`, `Record<K, V>`, and `React.FC<Props>` all use generics. Create reusable components and utilities that preserve type information across call sites.
+
+## Type Narrowing and Guards
+
+TypeScript narrows types in conditional branches. You help it with guards and assertions.
+
+### typeof, instanceof, and Discriminants
+
+**`typeof x === "string"`** narrows to `string`. **`x instanceof Date`** narrows to `Date`. **`"status" in obj`** and discriminant checks (`obj.kind === "ok"`) narrow union members.
+
+### Type Guards
+
+A type guard is a function that returns `x is Type`:
+
+```typescript
+function isString(x: unknown): x is string {
+  return typeof x === "string";
+}
+if (isString(value)) {
+  // value is string here
+}
+```
+
+Use guards for reusable narrowing logic. **Type assertions** (`as Type`) tell the compiler you know better—use sparingly when narrowing isn't possible.
+
+## Utility Types
+
+Built-in utility types transform existing types. They reduce repetition and keep definitions DRY.
+
+### Partial, Required, Pick, Omit, Record
+
+**`Partial<T>`** makes all properties optional. Useful for updates or defaults.
+
+**`Required<T>`** makes all properties required. Inverse of Partial.
+
+**`Pick<T, K>`** selects a subset of keys: `Pick<User, "id" | "name">`.
+
+**`Omit<T, K>`** excludes keys: `Omit<User, "password">`.
+
+**`Record<K, V>`** creates an object type with keys `K` and values `V`: `Record<string, number>` for `{ [key: string]: number }`.
+
+### Others
+
+**`Readonly<T>`** makes properties read-only. **`ReturnType<T>`** extracts a function's return type. **`Parameters<T>`** extracts parameter types. These utilities are building blocks for advanced typing.
+
+## TypeScript with React
+
+Typing React components, props, hooks, and events is straightforward once you know the patterns.
+
+### Typing Props
+
+```typescript
+interface ButtonProps {
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+}
+const Button: React.FC<ButtonProps> = ({ label, onClick, disabled }) => (
+  <button onClick={onClick} disabled={disabled}>{label}</button>
+);
+```
+
+Prefer `interface` for props. Use `children?: React.ReactNode` when components accept children. Avoid `React.FC` if you prefer explicit return types—many teams use `function Button(props: ButtonProps)`.
+
+### Typing Hooks
+
+**`useState`** infers from the initial value. For `null` initial state: `useState<User | null>(null)`.
+
+**`useRef`** for DOM refs: `useRef<HTMLInputElement>(null)`. For mutable values: `useRef< number | null>(null)`.
+
+**Custom hooks**: Return a typed tuple or object. The compiler infers from `useState` and other hooks inside.
+
+### Typing Events
+
+Use `React.ChangeEvent<HTMLInputElement>`, `React.MouseEvent<HTMLButtonElement>`, etc. For form handlers:
+
+```typescript
+const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  setValue(e.target.value);
+};
+```
+
+**Generic components**: Type the props that flow through: `function List<T>({ items, render }: { items: T[]; render: (item: T) => React.ReactNode })`.
+
+---
+
+TypeScript rewards investment: start with strict mode, add types to new code first, and gradually type existing modules. Use `any` only as a last resort; lean on unions, generics, and utility types to model your domain accurately. With these essentials, you'll write safer, more maintainable React and JavaScript applications.

@@ -1,0 +1,131 @@
+---
+title: "Advanced React Patterns"
+description: "Custom hooks, compound components, render props vs hooks, memoization, Context patterns, Suspense, error boundaries, and React 19 Server/Client Components."
+date: "2026-02-20"
+author: "Frontend Digest"
+audience: ["senior", "architect"]
+tags: ["react", "patterns", "hooks", "performance"]
+order: 8
+featured: true
+---
+
+Once you're comfortable with React fundamentals, advanced patterns help you build scalable, maintainable applications. This guide covers custom hooks, compound components, performance optimization, Context pitfalls, and modern features like Suspense and Server Components.
+
+## Custom Hooks: Extracting Reusable Logic
+
+### What Makes a Custom Hook
+
+A custom hook is a function that starts with `use` and calls other hooks. It lets you extract stateful logic from components so it can be shared. Custom hooks share state between components that use them—each call gets its own state, not a shared singleton.
+
+### When and How to Extract
+
+Extract when you have logic used in multiple components (e.g., form input handling, data fetching, subscription to external stores). Keep hooks focused: one concern per hook. Compose smaller hooks into larger ones. Return an object or tuple depending on what's clearest for the consumer.
+
+```jsx
+function useWindowSize() {
+  const [size, setSize] = useState({ width: 0, height: 0 });
+  useEffect(() => {
+    const handler = () => setSize({ width: window.innerWidth, height: window.innerHeight });
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+  return size;
+}
+```
+
+## Compound Components Pattern
+
+### Flexible, Composable APIs
+
+Compound components let you build flexible UIs where the parent and children work together through context. Think `<Select>`, `<Select.Option>`, `<Select.Label>`—the parent holds state; children customize appearance and behavior. Users get full control over layout and styling.
+
+### Implementation with Context
+
+The parent provides context (e.g., selected value, onSelect). Child components consume that context and render accordingly. Use `React.Children.map` and `cloneElement` sparingly—context is usually cleaner. Export both the parent and child components so consumers can mix and match.
+
+## Render Props vs Hooks
+
+### The Tradeoffs
+
+**Render props** pass a function as a child that receives data and returns JSX. They're flexible but lead to callback hell and wrapper divs. **Hooks** return values directly—cleaner call sites and no extra DOM nodes. For most new code, prefer hooks. Render props still appear in older libraries; understand them for interoperability.
+
+### When Render Props Still Make Sense
+
+When the abstraction needs to inject components into specific slots in a layout, render props (or slot-based patterns) can be clearer than hooks. Some headless UI libraries offer both—choose based on your composition needs.
+
+## React.memo, useMemo, useCallback: When They Actually Help
+
+### React.memo for Component Memoization
+
+`React.memo` wraps a component so it only re-renders when props change (shallow comparison). Use it when a component renders often with the same props—e.g., list items, expensive presentational components. Don't memoize everything; it adds overhead. Profile first.
+
+### useMemo for Expensive Computations
+
+`useMemo` caches the result of a computation. Use it when recalculating is expensive and the inputs change infrequently. Don't use it for cheap operations—the memoization cost can exceed the computation. Common use: derived data from props/state.
+
+### useCallback for Stable Function References
+
+`useCallback` returns a memoized function. Use it when passing callbacks to memoized children—without it, a new function each render breaks `React.memo`. Don't wrap every callback; only when you've verified it prevents unnecessary re-renders.
+
+### The Rule of Thumb
+
+Measure before optimizing. Add memoization when you've identified a performance problem, not preemptively. Overuse clutters code and can hurt performance.
+
+## Context API: Patterns and Pitfalls
+
+### When Context Works Well
+
+Context is ideal for "theme" or "locale"—data that changes rarely and is needed by many components. Split context by domain: `ThemeContext`, `AuthContext`, `LocaleContext`. Consumers re-render when the value changes; keep the value stable when possible.
+
+### Common Pitfalls
+
+**Prop drilling** isn't always bad—sometimes explicit props are clearer. **Context values that change often** cause all consumers to re-render. Avoid putting frequently changing state (e.g., form state) in context unless you split state and dispatch. **Large default values** can cause unnecessary re-renders if the provider re-creates the value object each render—memoize it.
+
+### Splitting Context
+
+Separate state and dispatch, or split by update frequency. Put stable values in one context, changing values in another. Consume only what you need in each component.
+
+## Suspense and Lazy Loading
+
+### Code Splitting with React.lazy
+
+`React.lazy` defers loading a component until it's needed. It returns a component that throws a promise; Suspense catches it and shows a fallback until the promise resolves. Use it for route-level splitting to reduce initial bundle size.
+
+```jsx
+const Dashboard = lazy(() => import('./Dashboard'));
+<Suspense fallback={<Spinner />}>
+  <Dashboard />
+</Suspense>
+```
+
+### Suspense for Data (React 18+)
+
+Suspense can also suspend on data fetching when used with frameworks (e.g., React Server Components, Relay, or libraries that integrate with Suspense). The pattern is still evolving; adopt when your stack supports it.
+
+## Error Boundaries
+
+### Catching React Errors
+
+Error boundaries are class components (or future hook-based equivalents) that implement `static getDerivedStateFromError` and/or `componentDidCatch`. They catch errors in child trees during render, lifecycle, and constructors—not in event handlers or async code. Use them to isolate failures and show fallback UI instead of a blank screen.
+
+### Placement Strategy
+
+Place error boundaries at route or feature boundaries. Don't wrap every component—too granular adds noise. One or two strategic boundaries usually suffice. Log errors to a service and show a friendly recovery UI.
+
+## Server Components vs Client Components (React 19+)
+
+### The Split
+
+**Server Components** run only on the server. They can fetch data, access the filesystem, and keep secrets. They don't ship JavaScript to the client. **Client Components** run on the client—they can use hooks, event handlers, and browser APIs. In React 19 and frameworks like Next.js, the default is Server Components; add `"use client"` to opt into client.
+
+### When to Use Which
+
+Use Server Components for static or data-fetching heavy parts of the page. Use Client Components for interactivity. Server Components can pass serializable props to Client Components; they cannot pass functions or non-serializable values. Compose them: a Server Component can render a Client Component as a child.
+
+### Benefits
+
+Server Components reduce client bundle size, improve initial load, and enable direct data fetching without waterfalls. They're a fundamental shift—plan your component boundaries accordingly.
+
+---
+
+Advanced patterns should solve real problems. Custom hooks reduce duplication; compound components enable flexible APIs; memoization fixes measured bottlenecks. Adopt Server Components where your framework supports them, use Suspense for code splitting, and keep error boundaries in place for resilience.

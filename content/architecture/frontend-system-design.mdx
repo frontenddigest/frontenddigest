@@ -1,0 +1,78 @@
+---
+title: "Frontend System Design"
+description: "A structured framework for approaching frontend system design interviews and real-world architecture decisions."
+date: "2026-02-20"
+author: "Frontend Digest"
+audience: ["senior", "architect"]
+tags: ["system-design", "architecture", "patterns"]
+order: 1
+featured: true
+---
+
+Frontend system design is the practice of defining how a frontend application is structured, how data flows, and how components interact. Whether you're in an interview or architecting a real product, a clear framework helps you make consistent, scalable decisions.
+
+## A Framework for Frontend System Design
+
+Approach any design problem in stages: clarify requirements, identify constraints, propose a high-level architecture, then drill into key areas. Always start with the user and the problem—technology choices should follow from those.
+
+### Step 1: Clarify Requirements
+
+Ask about functional requirements: What should the app do? Who are the users? What are the core user flows? Then probe non-functional requirements: performance targets (e.g., LCP under 2.5s), accessibility (WCAG level), offline support, and scale (DAU, concurrent users).
+
+### Step 2: Define the Scope
+
+Decide what's in scope for this design. Is it a greenfield app or an incremental change? Are you designing the full stack or only the frontend? Establishing boundaries prevents scope creep and keeps the discussion focused.
+
+### Step 3: Propose a High-Level Architecture
+
+Sketch the main layers: UI (pages and components), state and data layer, API layer, and any cross-cutting concerns (auth, routing, error handling). Show how user actions flow through the system and how data comes back.
+
+## Component Hierarchy and Structure
+
+How you organize components directly affects maintainability and reuse.
+
+### Atomic Design and Beyond
+
+Consider a hierarchy from primitives (buttons, inputs) to composites (forms, cards) to pages. Atomic design is one model; you can also use feature-based folders, domain-driven structure, or a hybrid. The goal is clear ownership and discoverability.
+
+### Composition Over Configuration
+
+Prefer composition—small, focused components combined together—over large components with many props. This improves testability and reuse. Use slots, render props, or compound components when configuration alone isn't enough.
+
+### Separation of Concerns
+
+Keep presentation (how it looks) separate from logic (state, side effects). Use custom hooks for reusable logic and keep components mostly presentational. This makes testing and refactoring easier.
+
+## Data Flow and State Management
+
+State is central to frontend architecture. Choose the right strategy for each type of state.
+
+### Types of State
+
+- **Server state**—data from APIs; use a library like TanStack Query (React Query) or SWR for caching and sync.
+- **Client state**—UI state, user preferences; consider local state, context, or a global store.
+- **URL state**—filters, tabs, modals; keep in the URL when shareable or bookmarkable.
+
+### Unidirectional Data Flow
+
+Prefer one-way data flow: parent components pass data down via props; child components emit events or callbacks up. Avoid prop drilling with context or state management libraries, but don't overuse global state—co-locate state as close to where it's used as possible.
+
+### API Design and Data Fetching
+
+Design your data layer with clear boundaries. Use typed API clients, handle loading and error states consistently, and consider colocating data requirements with components (e.g., via data loaders or Suspense). Think about optimistic updates, retries, and offline behavior early.
+
+## Example: Designing a Dashboard Application
+
+Consider a dashboard with charts, filters, and a data table.
+
+**Component hierarchy:** A `DashboardPage` composes `Filters`, `ChartContainer`, and `DataTable`. Each can be broken down further—`ChartContainer` might use `BarChart` or `LineChart` based on config.
+
+**Data flow:** Filters live in URL state (shareable). Chart and table data are server state, fetched based on filter values. Use a query library with keyed queries so filter changes trigger refetches. Loading skeletons and error boundaries wrap each data section.
+
+**State management:** Filter state in the URL; chart/table data from the server with TanStack Query; local UI state (e.g., expanded rows) in component state or a small store.
+
+**Performance:** Lazy-load chart libraries; virtualize the table for large datasets; debounce filter changes before refetching. Consider prefetching likely filter combinations.
+
+---
+
+Frontend system design is iterative. Start with a clear problem statement, propose a coherent structure, and refine based on trade-offs. The best designs balance simplicity, maintainability, and the ability to evolve as requirements change.

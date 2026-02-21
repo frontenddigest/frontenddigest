@@ -1,0 +1,130 @@
+---
+title: "Frontend Observability and Monitoring"
+description: "Comprehensive guide to seeing what's happening in production: error tracking, performance monitoring, RUM vs synthetic, session replay, alerting, and feature flag observability."
+date: "2026-02-20"
+author: "Frontend Digest"
+audience: ["senior", "architect"]
+tags: ["observability", "monitoring", "errors", "analytics"]
+order: 13
+featured: false
+---
+
+You can't fix what you can't see. Backend teams have had observability for years—logs, metrics, traces. Frontend has traditionally been a black box: users hit your site, something breaks, and you get a vague bug report. Modern frontend observability closes that gap. This guide covers how to instrument, monitor, and learn from your production frontend.
+
+## Why Frontend Observability Matters
+
+### The Black Box Problem
+
+Users experience errors, slowness, and confusion that never reach your backend logs. A JavaScript error might prevent a form from submitting; a slow third-party script might tank LCP. Without frontend instrumentation, you're guessing. With it, you know exactly what failed, for whom, and in what context.
+
+### Business Impact
+
+Poor frontend reliability directly affects conversion, retention, and support load. A single-digit percentage drop in conversion often traces back to a frontend bug or performance regression. Observability lets you correlate releases, feature flags, and errors with business outcomes.
+
+## Error Tracking: Sentry, Bugsnag, and Beyond
+
+### What to Capture
+
+Instrument global error handlers to catch unhandled exceptions and unhandled promise rejections. Attach user context (user ID, session ID), environment (production/staging), release version, and custom tags (feature flag values, A/B test variant).
+
+### Source Maps
+
+Without source maps, you see minified stack traces. With them, you see `CheckoutForm.tsx:42`. Upload source maps as part of your deploy pipeline. Most error trackers support private source map storage—your source stays secure while they translate stack traces.
+
+### Breadcrumbs
+
+Breadcrumbs are a trail of events leading to an error: "User clicked Checkout → API request to /cart → 500 response → Error thrown." When an error occurs, you get context. Log navigation, API calls, and key user actions as breadcrumbs with a bounded buffer (e.g., last 100 events).
+
+### User Context
+
+Attach `userId`, `email`, and `sessionId` to errors. When a user reports a bug, you can look up their session and replay what happened. Be mindful of PII—hash or avoid logging sensitive fields.
+
+## Performance Monitoring
+
+### Core Web Vitals in Production
+
+LCP (Largest Contentful Paint), FID/INP (First Input Delay), and CLS (Cumulative Layout Shift) matter for SEO and UX. Use the `web-vitals` library to send these metrics to your analytics or APM. Report on page load and route change.
+
+### Custom Metrics and Percentiles
+
+Beyond CWV, track what matters to your product: time to interactive for a dashboard, time to first search result, checkout step completion time. Store percentiles (p50, p95, p99)—averages hide tail latency. Segment by device, connection type, and geography to find outliers.
+
+### Real User Monitoring (RUM) vs Synthetic Monitoring
+
+**RUM** captures actual user sessions. You see real devices, networks, and user behavior. RUM reveals issues that only appear in production (slow CDN regions, mobile Safari quirks). Tools: DataDog RUM, New Relic Browser, Sentry Performance.
+
+**Synthetic monitoring** runs scripted flows from fixed locations (e.g., every 5 minutes from 10 cities). It catches uptime issues and regression in critical paths. Use both: synthetic for availability and baseline performance; RUM for real-world distribution and edge cases.
+
+## Structured Logging From the Browser
+
+### What to Log
+
+Log key business events (purchase completed, signup), API responses (success/failure, latency), and client-side state changes that aid debugging. Avoid logging PII or high-volume granular events that would explode your log storage.
+
+### Log Structure
+
+Use structured logs (JSON) with consistent fields: `timestamp`, `level`, `message`, `context` (object with request ID, user ID, etc.). Structure enables filtering and aggregation in your logging backend.
+
+### Sampling and Batching
+
+In high-traffic apps, sample logs—e.g., 1% of successful requests, 100% of errors. Batch logs and send periodically to reduce network overhead. Use a client-side logging library that buffers and flushes.
+
+## Session Replay Tools: FullStory, LogRocket
+
+### What They Do
+
+Session replay records DOM mutations, user input (masked), and network activity. When an error occurs, you watch the user's session like a video. Invaluable for reproducing "it broke when I clicked around" bugs.
+
+### Privacy and Performance Implications
+
+**Privacy**: Mask input fields (especially passwords), PII, and sensitive UI. Many tools support allowlists for elements to mask. Ensure compliance with GDPR and internal policies.
+
+**Performance**: Replay adds overhead. Sample sessions (e.g., 10% of users, or 100% of error sessions). Lazy-load replay scripts after initial page load. Monitor the impact on your own Core Web Vitals.
+
+### When to Use
+
+Session replay is most valuable for diagnosing intermittent bugs and understanding confusing UX. Use it alongside error tracking—replay gives the "why" when errors give the "what."
+
+## Alerting Strategies
+
+### What to Alert On
+
+Alert on:
+
+- Error rate spikes (e.g., >5% of sessions with errors)
+- Critical path failures (checkout, auth, payment)
+- Performance degradation (p95 LCP >4s)
+- Dependency failures (CDN, analytics, third-party scripts)
+
+Avoid alerting on every individual error—you'll get alert fatigue and miss real incidents.
+
+### Avoiding Alert Fatigue
+
+- **Aggregate**: Alert on rates or percentiles, not raw counts.
+- **Thresholds**: Use dynamic baselines or seasonal adjustments where possible.
+- **Actionable**: Every alert should have a runbook. If you can't act on it, don't alert.
+- **Tiers**: P1 = page down; P2 = feature broken; P3 = degraded experience. Route accordingly.
+
+## Building Custom Dashboards for Frontend Health
+
+### Key Metrics to Track
+
+Build dashboards with: error rate by release/route, Core Web Vitals over time, API latency percentiles, conversion funnel health. Segment by device, browser, and region to spot localized issues.
+
+### Correlation With Releases and Flags
+
+Overlay deployment markers and feature flag changes on your dashboards. When error rate spikes, you can immediately see if it correlates with a recent deploy or flag rollout. This is critical for fast incident response.
+
+## Feature Flag Observability
+
+### Tracking Adoption and Errors by Flag
+
+When you ship a feature behind a flag, instrument it: log which users see which variant, track conversion or engagement by variant, and monitor error rate by flag. This lets you catch bad rollouts before you fully enable a feature.
+
+### Kill Switches
+
+Feature flags double as kill switches. If a new feature causes errors, turn it off without redeploying. Ensure your flagging system is observable—you need to know who has the flag on and what errors they're seeing.
+
+---
+
+Frontend observability turns production from a black box into a transparent, debuggable system. Invest in error tracking with source maps and breadcrumbs, real user performance monitoring, and smart alerting. Use session replay sparingly but effectively. Your users—and your on-call engineers—will benefit.

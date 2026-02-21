@@ -1,0 +1,96 @@
+---
+title: "Advanced HTML and Accessibility"
+description: "WCAG guidelines, ARIA attributes, accessible forms, focus management, screen reader testing, color contrast, anti-patterns, and automated a11y tools."
+date: "2026-02-20"
+author: "Frontend Digest"
+audience: ["beginner", "senior"]
+tags: ["html", "accessibility", "a11y", "wcag"]
+order: 6
+featured: false
+---
+
+Accessibility isn't optional—it's a requirement for inclusive products. This guide covers WCAG compliance, when and how to use ARIA, building accessible forms, focus management, testing strategies, and tools that help you catch issues early.
+
+## WCAG Guidelines Overview
+
+### Conformance Levels: A, AA, AAA
+
+The **Web Content Accessibility Guidelines (WCAG)** define three conformance levels. **Level A** is the minimum—sites must meet these to avoid major barriers. **Level AA** is the target for most projects and often mandated by regulation; it includes color contrast ratios and keyboard access. **Level AAA** is the highest standard—more rigorous but often impractical for everything (e.g., sign language for video).
+
+### Key Principles: Perceivable, Operable, Understandable, Robust
+
+WCAG organizes criteria under four principles. **Perceivable**: content must be presentable to users in ways they can perceive (text alternatives, captions, adaptable layout). **Operable**: interface components must be operable (keyboard access, sufficient time, no seizure-inducing content). **Understandable**: content and operation must be understandable (readable text, predictable behavior, input assistance). **Robust**: content must be robust enough for assistive technologies (valid markup, proper semantics).
+
+## ARIA Attributes and When to Use Them
+
+### ARIA Roles, States, and Properties
+
+ARIA augments HTML when native elements don't suffice. **Roles** (`role="tablist"`, `role="dialog"`) define widget type. **States** (`aria-expanded`, `aria-selected`) change with user interaction. **Properties** (`aria-label`, `aria-describedby`) provide names and descriptions. Use ARIA sparingly—prefer native HTML. A `<button>` is better than `<div role="button">` because the button includes keyboard handling and focus management.
+
+### When to Reach for ARIA
+
+Add ARIA when building custom components (tabs, accordions, modals) that have no native equivalent, or when you need to expose relationships (e.g., `aria-controls` linking a button to the panel it toggles). Use `aria-live` regions for dynamic content announcements. Avoid redundant ARIA—don't add `role="button"` to a `<button>`.
+
+## Building Accessible Forms
+
+### Labels, Error Messages, and Fieldsets
+
+Every form control needs an associated label. Use `<label for="id">` or wrap the input inside the label. For complex controls, use `aria-labelledby` to reference multiple elements. Group related inputs with `<fieldset>` and `<legend>`. Place error messages near the invalid field and associate them with `aria-describedby` or `aria-errormessage` (ARIA 1.2). Announce validation errors to screen readers—don't rely on color alone.
+
+### Required Fields and Validation
+
+Mark required fields with `required` or `aria-required="true"`. Use `aria-invalid="true"` when validation fails. Ensure error text is programmatically associated and announced. Provide clear, specific error messages (e.g., "Enter a valid email address" instead of "Invalid input").
+
+## Focus Management and Keyboard Navigation
+
+### Visible Focus and Tab Order
+
+Users must see which element has focus. Never remove focus outlines with `outline: none` without providing a visible alternative. Ensure tab order follows visual/logical order—avoid positive `tabindex` values that disrupt natural flow. Use `tabindex="-1"` to make an element programmatically focusable (e.g., for focus trapping) without adding it to the tab order.
+
+### Focus Trapping and Restoration
+
+In modals and dialogs, trap focus within the dialog so users can't tab out. When closing, return focus to the element that opened it. Use `aria-modal="true"` and manage focus with JavaScript (e.g., `focus()` on the first focusable element when opening, and on the trigger when closing).
+
+## Screen Reader Testing Strategies
+
+### Manual Testing with NVDA and VoiceOver
+
+Install a screen reader (NVDA on Windows, VoiceOver on macOS) and navigate your interface. Test with keyboard only—no mouse. Verify that content is announced in a logical order, that interactive elements are reachable and labeled, and that dynamic updates are announced. Testing early and often surfaces issues that automated tools miss.
+
+### What to Verify
+
+Check that headings form a coherent outline, that images have meaningful alt text, that form errors are announced, and that custom widgets expose the correct roles and states. Listen for redundant or missing announcements. Document patterns that work well for your team.
+
+## Color Contrast and Visual Accessibility
+
+### Contrast Ratios
+
+WCAG AA requires 4.5:1 for normal text and 3:1 for large text (18pt+ or 14pt+ bold). AAA requires 7:1 and 4.5:1 respectively. Use tools like WebAIM's Contrast Checker or browser DevTools to verify. Don't rely on color alone to convey information—icons, patterns, or text labels should supplement color.
+
+### Resize and Zoom
+
+Support user scaling up to 200% without loss of content or functionality. Avoid fixed pixel dimensions that break layout when zoomed. Use relative units (rem, em) and flexible layouts. Test with browser zoom and with OS-level text size settings.
+
+## Common Accessibility Anti-Patterns
+
+### What to Avoid
+
+**Clickable divs** instead of buttons or links—use semantic elements. **Missing alt text** or generic alt ("image")—provide meaningful descriptions. **Low contrast** text—meet minimum ratios. **Keyboard traps**—users must be able to reach and exit all interactive elements. **Auto-playing media** with sound—let users control playback. **Decorative elements in tab order**—use `tabindex="-1"` or keep them out of the DOM for assistive tech.
+
+### Over-Engineering ARIA
+
+Adding ARIA when HTML already provides the semantics causes redundancy and can confuse screen readers. A native `<button>` doesn't need `role="button"`. A `<nav>` doesn't need `role="navigation"`. Use ARIA only when necessary.
+
+## Automated Testing Tools
+
+### axe and axe-core
+
+**axe-core** is an open-source accessibility engine. Integrate it into your CI via Jest (jest-axe), Cypress (cypress-axe), or Playwright. It catches many issues—missing labels, contrast failures, invalid ARIA—but cannot verify everything. Use it as a baseline; manual testing and user feedback fill the gaps.
+
+### Lighthouse
+
+Chrome DevTools' Lighthouse includes an accessibility audit. It runs a subset of axe checks and adds some custom audits (e.g., viewport meta, tap target size). Run it during development and in CI. Fix critical and serious issues before release.
+
+---
+
+Accessibility is a process, not a checkbox. Combine automated tools with manual testing and user involvement. Start with semantic HTML, add ARIA only when needed, and verify with real assistive technology. Building accessible interfaces from the start is easier than retrofitting later.

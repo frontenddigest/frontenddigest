@@ -1,0 +1,72 @@
+---
+title: "How Browsers Render Web Pages"
+description: "A deep dive into the browser rendering pipeline, from HTML parsing through the critical rendering path to paint and composite."
+date: "2026-02-20"
+author: "Frontend Digest"
+audience: ["beginner", "senior"]
+tags: ["browser", "performance", "rendering"]
+order: 1
+featured: true
+---
+
+Understanding how browsers transform HTML, CSS, and JavaScript into pixels on screen is fundamental to building fast, responsive web applications. The rendering pipeline follows a predictable sequence—each stage has implications for performance.
+
+## The Rendering Pipeline Overview
+
+When you navigate to a URL, the browser downloads resources and executes a multi-stage process to render the page. This pipeline consists of six main phases that work together to produce what users see.
+
+### HTML Parsing and DOM Construction
+
+The browser reads HTML bytes and converts them into tokens via the HTML parser. These tokens are then used to build the **Document Object Model (DOM)**—a tree structure representing the page's structure. The DOM is built incrementally, so parsing doesn't have to complete before the next stages begin.
+
+JavaScript can modify the DOM via `document.createElement`, `appendChild`, or by changing attributes. Script execution is blocking by default: when the parser encounters a `<script>` tag, it pauses HTML parsing until the script finishes. That's why placing scripts at the end of `<body>` or using `async`/`defer` matters for perceived performance.
+
+### CSSOM: The CSS Object Model
+
+While the DOM is being built, the browser parses linked and embedded stylesheets to construct the **CSS Object Model (CSSOM)**. The CSSOM is also a tree; it stores styles, selectors, and computed values. Unlike the DOM, CSS is render-blocking: the browser typically waits for CSS before rendering to avoid a Flash of Unstyled Content (FOUC).
+
+Because CSS affects layout and paint, browsers block rendering until critical CSS is available. Inlining above-the-fold CSS and deferring non-critical styles can reduce this blocking time.
+
+### Render Tree and Layout
+
+The browser combines the DOM and CSSOM into a **render tree**. This tree includes only visible nodes (e.g., it excludes `display: none` and `<head>`) and holds computed styles for each node.
+
+**Layout** (also called reflow) is the phase where the browser calculates the exact position and size of each element. It walks the render tree and computes geometry based on the box model, floats, flexbox, grid, and positioning rules. Layout is expensive—changes that trigger reflow (e.g., modifying width, height, or margins) can cause the browser to recalculate large portions of the tree.
+
+### Paint and Composite
+
+**Paint** is the step where the browser fills pixels. It creates a list of draw operations (e.g., backgrounds, borders, text) for each layer. Paint is broken into multiple layers for complex pages; elements with `transform`, `opacity`, or `will-change` often get their own compositor layer.
+
+**Composite** is the final stage. The browser draws all layers onto the screen in the correct order. Compositing runs on the GPU when possible and is relatively cheap compared to layout and paint. Animating `transform` and `opacity` typically avoids layout and paint, making them ideal for smooth 60fps animations.
+
+## The Critical Rendering Path
+
+The **critical rendering path** is the minimum set of steps the browser must complete to render the first meaningful content. Optimizing this path means:
+
+1. **Minimize critical resources**—reduce HTML, CSS, and blocking JavaScript needed for first paint.
+2. **Minimize critical path length**—shorten the dependency chain (e.g., fewer round-trips for CSS/JS).
+3. **Minimize critical bytes**—compress and minimize the size of those resources.
+
+Key metrics include **First Contentful Paint (FCP)**, **Largest Contentful Paint (LCP)**, and **Time to Interactive (TTI)**. Each maps to different stages of the rendering pipeline.
+
+## Optimization Tips
+
+### Reduce Blocking Resources
+
+Defer or async-load non-critical JavaScript. Use `media="print"` or `onload` tricks to load non-critical CSS asynchronously. Inline critical CSS for above-the-fold content.
+
+### Minimize Layout Thrashing
+
+Avoid reading layout properties (e.g., `offsetHeight`, `getBoundingClientRect`) and then immediately modifying the DOM in the same frame. Batch reads and writes, or use `requestAnimationFrame` to separate layout reads from writes.
+
+### Leverage the Compositor
+
+Animate only `transform` and `opacity` when possible. Add `will-change: transform` for elements you plan to animate, but use sparingly—each promotes the element to its own layer and consumes memory.
+
+### Optimize Font Loading
+
+Use `font-display: swap` or `optional` to avoid invisible text. Preload critical fonts so they're available earlier in the pipeline.
+
+---
+
+Mastering the rendering pipeline helps you make informed decisions about structure, styling, and scripting. When you understand why certain changes cause reflows or how layers affect compositing, you can build faster, smoother experiences.

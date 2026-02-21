@@ -1,0 +1,128 @@
+---
+title: "Design a Social Media News Feed"
+description: "System design for a Twitter/Facebook-style news feed: infinite scroll, virtualization, optimistic updates, real-time updates, lazy loading, and content ranking."
+date: "2026-02-20"
+author: "Frontend Digest"
+audience: ["senior", "architect"]
+tags: ["system-design", "interview", "feed", "infinite-scroll"]
+order: 2
+featured: true
+---
+
+Designing a social media news feed challenges your understanding of list performance, real-time updates, and optimistic UI. Here's how to structure your answer in an interview.
+
+## Requirements Clarification
+
+### Functional Requirements
+
+- Display a chronological or algorithmically ranked feed of posts.
+- Infinite scroll: load more items as the user scrolls toward the bottom.
+- Each post: author, content (text, images, videos), timestamp, like/comment counts, and actions (like, comment, share).
+- User can like, comment, or share; feedback must feel instant.
+- Optional: real-time updates when new posts arrive (e.g., "3 new posts" banner).
+- Optional: pull-to-refresh on mobile.
+
+### Non-Functional Requirements
+
+- **Performance**: Smooth 60fps scroll; LCP under 2.5s.
+- **Memory**: Virtualize long lists—don't render thousands of DOM nodes.
+- **Network**: Graceful loading states; handle slow connections and retries.
+- **Perceived performance**: Optimistic updates for likes; skeletons for initial load.
+
+## High-Level Architecture
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│  FeedPage                                                     │
+│  ┌─────────────────────────────────────────────────────────┐ │
+│  │ VirtualizedFeed (react-window / @tanstack/react-virtual)│ │
+│  │   ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐       │ │
+│  │   │ PostCard│ │ PostCard│ │ PostCard│ │ PostCard│ ...    │ │
+│  │   └─────────┘ └─────────┘ └─────────┘ └─────────┘       │ │
+│  └─────────────────────────────────────────────────────────┘ │
+│  ┌─────────────────────────────────────────────────────────┐ │
+│  │ NewPostsBanner (when real-time delivers new items)       │ │
+│  └─────────────────────────────────────────────────────────┘ │
+│  ┌─────────────────────────────────────────────────────────┐ │
+│  │ useFeed hook: infinite query, mutations, optimistic UI   │ │
+│  └─────────────────────────────────────────────────────────┘ │
+└──────────────────────────────────────────────────────────────┘
+```
+
+Data flow: initial fetch → render virtualized list → scroll triggers next page → mutations (like/comment) with optimistic updates → optional WebSocket for new posts.
+
+## Component Design
+
+### FeedPage
+
+Orchestrates the feed. Holds scroll container ref. Renders `VirtualizedFeed`, `NewPostsBanner`, and loading/error states. Handles "load more" trigger (intersection observer or scroll listener).
+
+### VirtualizedFeed
+
+Uses `react-window` or `@tanstack/react-virtual` to render only visible rows + a small buffer. Each row height can be dynamic (variable content) or estimated. Pass `posts` and `onLoadMore` callback.
+
+### PostCard
+
+Presentational component: avatar, author name, content, media (lazy-loaded), timestamp, action bar (like, comment, share). Receives `post` and `onLike`, `onComment` callbacks. Uses `IntersectionObserver` for images within the card.
+
+### useFeed Hook
+
+- Uses TanStack Query's `useInfiniteQuery` for paginated feed.
+- `useMutation` for like/comment with `onMutate` for optimistic update (update cache before response).
+- Optional: `useSubscription` or WebSocket listener for new posts; store in separate state and show banner.
+
+```ts
+interface Post {
+  id: string;
+  author: { id: string; name: string; avatarUrl: string };
+  content: string;
+  media?: { type: 'image' | 'video'; url: string }[];
+  likesCount: number;
+  commentsCount: number;
+  likedByMe: boolean;
+  createdAt: string;
+}
+```
+
+## State Management
+
+- **Feed items**: Server state via TanStack Query. Key: `['feed', cursor]`. Pages appended as user scrolls.
+- **Optimistic state**: When user likes, immediately update `likedByMe` and `likesCount` in cache; rollback on error.
+- **New posts (real-time)**: Client state—array of posts from WebSocket. Merged when user taps "View new" or on refresh.
+- **Scroll position**: Preserve when navigating away (e.g., to post detail) using `sessionStorage` or a store so user returns to same position.
+
+## API Design
+
+```
+GET /api/feed?cursor=&limit=20
+Response: { posts: Post[], nextCursor: string | null }
+
+POST /api/posts/:id/like   → { liked: boolean }
+POST /api/posts/:id/comments → { comment: Comment }
+
+WebSocket: subscribe to feed channel; receive { type: 'new_post', post: Post }
+```
+
+Cursor-based pagination is preferred over offset for consistency with real-time inserts.
+
+## Performance Considerations
+
+- **Virtualization**: Essential. Only render ~20–30 rows in view + buffer. Use fixed or estimated row heights; dynamic heights need measurement.
+- **Image lazy loading**: `loading="lazy"` and/or `IntersectionObserver` for images in view. Consider blur placeholder and responsive `srcset`.
+- **Content ranking**: If ranking happens client-side (e.g., re-sort by engagement), do it in a `useMemo` with a stable sort key. Prefer server-side ranking for scale.
+- **Debounce scroll**: Throttle scroll handlers; rely on virtualization library's built-in handling.
+- **Code splitting**: Lazy-load heavy components (e.g., video player, rich editor for comments).
+
+## Accessibility
+
+- **Infinite scroll**: Provide a "Load more" button as fallback for keyboard users; or ensure focus management when new items render.
+- **Feed structure**: Use `role="feed"` or semantic list; each post as `article`.
+- **Images**: Alt text from API or descriptive fallback.
+- **Reduced motion**: Respect `prefers-reduced-motion` for like animation and scroll behavior.
+- **Focus**: When opening a post in a modal, trap focus; when closing, return to the post card.
+
+## Trade-offs and Extensions
+
+**Trade-offs**: Infinite scroll vs. pagination—infinite scroll is engaging but hard to "get back" to a specific post; consider hybrid (e.g., "Load more" button). Real-time adds complexity—polling is simpler; WebSockets scale better for many users.
+
+**Extensions**: Add filters (top, latest, following). Implement "read" tracking. Add bookmark/save. Offline support with service worker. Prefetch next page on approach. Skeleton loaders per post. Image CDN with multiple sizes for responsive loading.

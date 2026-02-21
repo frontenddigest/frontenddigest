@@ -1,0 +1,134 @@
+---
+title: "Design a Spreadsheet Application"
+description: "System design for a spreadsheet like Google Sheets: virtualized grid, cell editing, formulas, undo/redo, selection, copy/paste, column/row resizing, and performance at scale."
+date: "2026-02-20"
+author: "Frontend Digest"
+audience: ["senior", "architect"]
+tags: ["system-design", "interview", "spreadsheet", "data-grid"]
+order: 7
+featured: true
+---
+
+Designing a spreadsheet application tests virtualized rendering, formula evaluation, complex state, and handling large datasets. Here's a structured approach.
+
+## Requirements Clarification
+
+### Functional Requirements
+
+- **Grid:** Display cells in rows and columns; support thousands of rows/columns.
+- **Editing:** Inline cell editing with formula support (e.g., `=SUM(A1:A10)`).
+- **Selection:** Single cell, ranges, multi-select; keyboard navigation (arrow keys, Shift+arrows).
+- **Operations:** Copy, paste, cut; undo/redo.
+- **Layout:** Resizable columns and rows; frozen rows/columns.
+- **References:** Cell references (`A1`, `$A$1`), range references (`A1:B5`).
+
+### Non-Functional Requirements
+
+- Smooth scrolling and editing with 10,000+ cells visible in the viewport.
+- Sub-100ms feedback for cell edits and formula recalculation.
+- Offline-capable (optional); collaborative editing (optional).
+
+## High-Level Architecture
+
+```
+┌────────────────────────────────────────────────────────────┐
+│                     SpreadsheetRoot                          │
+├─────────────┬──────────────────────────────────────────────┤
+│  HeaderBar  │  VirtualizedGrid (viewport only)              │
+│  - Toolbar  │  - RowHeaders (virtualized)                   │
+│  - Formula  │  - ColumnHeaders (virtualized)                │
+│    Bar      │  - CellMatrix (virtualized rows × columns)    │
+├─────────────┴──────────────────────────────────────────────┤
+│  State: cells, selection, undoStack, formulas               │
+└────────────────────────────────────────────────────────────┘
+```
+
+Data flows unidirectionally: user input → action dispatcher → state update → virtualized grid re-renders only visible cells.
+
+## Component Design
+
+### VirtualizedGrid
+
+The critical component. Use a library like `@tanstack/react-virtual` or `react-window` to render only rows (and optionally columns) in the viewport. Measure row height (fixed or dynamic) and column widths for accurate scroll height and positioning.
+
+```tsx
+interface VirtualizedGridProps {
+  rowCount: number;
+  columnCount: number;
+  rowHeight: number;
+  columnWidths: Map<string, number>;
+  getCellValue: (row: number, col: number) => CellValue;
+  onCellChange: (row: number, col: number, value: CellValue) => void;
+  selection: SelectionRange | null;
+}
+```
+
+### Cell Component
+
+Renders display value (computed from raw value or formula). Handles focus, edit mode, and keyboard navigation. Uses `contentEditable` or an overlay input for editing—overlay input avoids contentEditable quirks.
+
+```typescript
+interface Cell {
+  raw: string | number;
+  formula?: string;      // e.g., "=A1+B1"
+  computed?: number | string;  // evaluated result
+  format?: string;       // "currency", "percent", etc.
+}
+```
+
+### Formula Bar
+
+Shows the raw content of the selected cell; edits here update the cell. Parse and highlight formula syntax (keywords, references) for better UX.
+
+## State Management
+
+| State | Location | Notes |
+|-------|----------|-------|
+| `cells` | Map/object keyed by `"row,col"` | Raw values and formulas |
+| `selection` | Local state | `{ start: {row, col}, end: {row, col} }` |
+| `columnWidths`, `rowHeights` | Local state | Resize state; persist to localStorage |
+| `undoStack`, `redoStack` | Arrays of patches | Immutable patches (e.g., `{ cell, prev, next }`) |
+| `computedCache` | Derived/memoized | Formula results; invalidate on dependency change |
+
+Use a reducer or Zustand for predictable updates. Keep the cell map normalized; compute derived values (formulas) in a separate layer to avoid recalculation storms.
+
+## API Design
+
+### Formula Evaluation
+
+Options: (1) In-browser evaluator (e.g., custom parser, math.js, or a dedicated formula engine like HyperFormula), (2) Backend evaluation for complex formulas. For an interview, assume client-side evaluation with a dependency graph: when cell A1 changes, mark A1 and all dependents dirty, then recalculate in topological order.
+
+```typescript
+// Dependency graph for formulas
+// A1 = "=B1+C1" → A1 depends on B1, C1
+// When B1 changes: invalidate A1, recalc A1
+type DependencyGraph = Map<string, Set<string>>;  // cell -> dependents
+```
+
+### Data Persistence
+
+- `GET /sheet/:id` — Load full sheet or paginated chunks
+- `PATCH /sheet/:id/cells` — Batch cell updates (for sync/collaboration)
+- Consider delta/CRDT for real-time collaboration
+
+## Performance Considerations
+
+- **Virtualization:** Only render visible rows and columns. Typical approach: rows virtualized; columns can be virtualized if column count is huge.
+- **Memoization:** Memoize cell components by `(row, col, value)` so unchanged cells don't re-render.
+- **Debounced persistence:** Batch cell changes and persist every 500ms–1s instead of on every keystroke.
+- **Formula invalidation:** Track dependencies; only recalc affected cells when a cell changes.
+- **Web Workers:** Move formula evaluation to a worker to keep the main thread responsive for large recalcs.
+
+## Accessibility
+
+- **Grid role:** `role="grid"`, `aria-rowcount`, `aria-colcount`.
+- **Cell roles:** `role="gridcell"`, `aria-selected`, `aria-readonly` when applicable.
+- **Keyboard:** Arrow keys for navigation; Enter to edit; Tab for next cell; Escape to cancel.
+- **Screen readers:** Announce cell position (e.g., "A1") and value on focus.
+- **Formula bar:** Labeled, keyboard-accessible; ensure formula content is readable.
+
+## Trade-offs and Extensions
+
+**Trade-offs:** contentEditable vs. overlay input—contentEditable is simpler but has browser inconsistencies; overlay input gives full control. Client-side formulas scale to medium-sized sheets; for heavy logic, consider server evaluation. Virtualization adds complexity but is essential for performance.
+
+**Extensions:** Charts, conditional formatting, data validation, import/export (CSV, Excel), real-time collaboration (OT/CRDT), plugins/macros.

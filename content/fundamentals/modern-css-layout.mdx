@@ -1,0 +1,81 @@
+---
+title: "Modern CSS Layout"
+description: "Master Flexbox, CSS Grid, and modern layout features like container queries and :has() for responsive, maintainable interfaces."
+date: "2026-02-20"
+author: "Frontend Digest"
+audience: ["beginner"]
+tags: ["css", "layout", "flexbox", "grid"]
+order: 2
+featured: false
+---
+
+Modern CSS layout tools have transformed how we build responsive interfaces. Gone are the days of floats and table-based layouts—Flexbox and CSS Grid, along with newer features like container queries and `:has()`, give us powerful, declarative control over how content flows and adapts.
+
+## Flexbox: One-Dimensional Layouts
+
+Flexbox arranges items along a single axis—either horizontally (row) or vertically (column). It excels at distributing space within a container, aligning items, and handling dynamic content sizes.
+
+### Core Flexbox Concepts
+
+A flex container is created with `display: flex` or `display: inline-flex`. Child elements become flex items. Key properties include:
+
+- **`flex-direction`**—`row`, `row-reverse`, `column`, or `column-reverse`—defines the main axis.
+- **`justify-content`**—aligns items along the main axis (`flex-start`, `center`, `flex-end`, `space-between`, `space-around`, `space-evenly`).
+- **`align-items`**—aligns items along the cross axis.
+- **`flex-wrap`**—allows items to wrap onto multiple lines when space runs out.
+
+On flex items, **`flex-grow`**, **`flex-shrink`**, and **`flex-basis`** (often combined as `flex: 1 1 auto`) control how items grow or shrink to fill available space.
+
+### When to Use Flexbox
+
+Use Flexbox for navigation bars, card rows, form layouts, or any scenario where you're distributing items along a single direction. It shines for centering content, creating equal-height columns, and building flexible component layouts.
+
+## CSS Grid: Two-Dimensional Layouts
+
+CSS Grid lets you define rows and columns simultaneously. You place items into grid cells, making it ideal for complex page layouts, dashboards, and card galleries.
+
+### Core Grid Concepts
+
+A grid container uses `display: grid`. You define tracks with `grid-template-columns` and `grid-template-rows`, or use shorthand like `grid-template: "header header" 60px "sidebar main" 1fr / 200px 1fr` for named areas.
+
+- **`grid-template-columns`** and **`grid-template-rows`**—define explicit track sizes; use `fr` for flexible units.
+- **`gap`** (or `row-gap` / `column-gap`)—adds space between grid cells.
+- **`grid-column`** and **`grid-row`**—on items, control placement; `span` lets items span multiple tracks.
+
+`repeat()`, `minmax()`, and `auto-fill`/`auto-fit` make responsive grids straightforward without media queries in many cases.
+
+### When to Use Grid
+
+Use Grid for full-page layouts, masonry-like arrangements, dashboards, and image galleries. When you need both row and column control, Grid is the right tool.
+
+## Flexbox vs. Grid: Choosing the Right Tool
+
+**Flexbox** is best when:
+- You're laying out items in a single row or column.
+- You need flexible, content-driven sizing.
+- You're building components like buttons, menus, or form groups.
+
+**Grid** is best when:
+- You need explicit control over rows and columns.
+- You're building page-level or section-level layouts.
+- Items should align across both dimensions.
+
+You can—and often should—combine both: use Grid for the page structure and Flexbox inside grid cells for component layout.
+
+## Modern CSS Features
+
+### Container Queries
+
+Instead of sizing components based on viewport width, **container queries** let components respond to their own container's size. Define a container with `container-type: inline-size` and then use `@container (min-width: 400px)` to adjust styles. This makes components truly reusable across different contexts.
+
+### The :has() Selector
+
+The **`:has()`** selector is a "parent selector"—it matches an element if it contains a descendant that matches the given selector. Use it for styling a card when it contains an image, or a form group when its input is invalid. It enables many layout and styling patterns that previously required JavaScript.
+
+### Subgrid
+
+**Subgrid** allows a grid child to inherit its parent's grid tracks. When you nest grids, the inner grid can align with the outer grid's columns or rows using `grid-template-rows: subgrid` or `grid-template-columns: subgrid`. This keeps nested content aligned without manually syncing track definitions.
+
+---
+
+Modern CSS layout reduces dependence on JavaScript and media queries while improving maintainability. Start with Flexbox for one-dimensional flows and Grid for two-dimensional layouts, then layer in container queries and `:has()` as browser support allows.

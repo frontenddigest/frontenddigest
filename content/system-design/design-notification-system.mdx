@@ -1,0 +1,142 @@
+---
+title: "Design a Frontend Notification System"
+description: "System design for toasts, badges, and notification center: queue management, auto-dismiss, priority, read/unread, real-time delivery (SSE/WebSocket), filtering, push notifications, and overflow behavior."
+date: "2026-02-20"
+author: "Frontend Digest"
+audience: ["senior", "architect"]
+tags: ["system-design", "interview", "notifications", "real-time"]
+order: 9
+featured: false
+---
+
+Designing a frontend notification system tests queue management, real-time data, accessibility, and cross-cutting UI concerns. Here's a structured approach.
+
+## Requirements Clarification
+
+### Functional Requirements
+
+- **Toasts:** Temporary messages (success, error, info, warning); auto-dismiss; manual dismiss; stack when multiple.
+- **Badge:** Unread count on nav icon (e.g., bell); updates in real time.
+- **Notification Center:** Full list of notifications; filter by read/unread, category; mark as read; pagination.
+- **Real-time:** New notifications arrive via SSE or WebSocket without polling.
+- **Push:** Optional browser push notifications when tab is backgrounded.
+
+### Non-Functional Requirements
+
+- Max N toasts visible (e.g., 3–5); queue overflow behavior (drop oldest, or show "+N more").
+- Screen reader announcements for important toasts (live region).
+- Performant with hundreds of notifications in the center.
+
+## High-Level Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    NotificationProvider (Context)             │
+├─────────────────────────────────────────────────────────────┤
+│  ToastQueue          │  NotificationCenter (state)           │
+│  - active toasts     │  - notifications[]                    │
+│  - maxVisible: 5     │  - unreadCount                        │
+│  - priority queue    │  - filters, pagination                 │
+├─────────────────────┴───────────────────────────────────────┤
+│  RealTimeConnection (SSE/WebSocket)  │  useToast(), useNotifications()  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+Toast queue is separate from notification center; toasts are ephemeral; center holds the full list. Badge count derives from unread notifications.
+
+## Component Design
+
+### ToastQueue
+
+Manages a queue of toast items. When `addToast()` is called, enqueue. Render up to `maxVisible` (e.g., 5); when one dismisses, show next. Use a priority: errors > warnings > info > success, or FIFO within same priority.
+
+```tsx
+interface Toast {
+  id: string;
+  type: 'success' | 'error' | 'info' | 'warning';
+  message: string;
+  duration?: number;  // ms, default 5000; 0 = persistent
+  onDismiss?: () => void;
+}
+```
+
+### Toast Component
+
+Single toast: icon, message, close button. Starts auto-dismiss timer on mount; clears on unmount. Use `aria-live="polite"` (or `assertive` for errors) for screen readers. Position: top-right or bottom-right; stack vertically with gap.
+
+### NotificationCenter
+
+Dropdown or slide-out panel. Fetches notifications from API; subscribes to real-time for new ones. Renders list with virtualization if many items. Each item: icon, title, body, timestamp, read/unread state, action links.
+
+```typescript
+interface Notification {
+  id: string;
+  type: 'info' | 'alert' | 'action';
+  title: string;
+  body?: string;
+  read: boolean;
+  createdAt: string;  // ISO
+  actionUrl?: string;
+  metadata?: Record<string, unknown>;
+}
+```
+
+### Badge
+
+Displays unread count. Subscribes to `unreadCount` from context or API. Show "9+" when count > 9. Fetches count on mount and on real-time event.
+
+## State Management
+
+| State | Location | Notes |
+|-------|----------|-------|
+| `toastQueue` | Context/Store | Array of pending toasts; max visible rendered |
+| `notifications` | Context/Store | Paginated list; append on real-time |
+| `unreadCount` | Derived or stored | Sum of unread; decrement on mark-read |
+| `filters` | Local | read/unread, type, date range |
+| `connectionStatus` | Local | SSE/WebSocket connected/disconnected |
+
+Use Zustand or React Context + reducer. Keep toast queue in memory only; notifications may be persisted (backend). Badge count can be fetched from `GET /notifications/unread-count` or derived from `notifications`.
+
+## API Design
+
+### REST Endpoints
+
+- `GET /notifications?page=1&limit=20&read=false` — List with pagination and filters
+- `GET /notifications/unread-count` — Badge count
+- `PATCH /notifications/:id/read` — Mark one as read
+- `POST /notifications/mark-all-read` — Bulk mark read
+- `DELETE /notifications/:id` — Remove (optional)
+
+### Real-Time (SSE or WebSocket)
+
+- **SSE:** `GET /notifications/stream` — Server sends `data: { type: 'new', notification }` when new notification.
+- **WebSocket:** `ws://api/notifications` — Subscribe to user channel; receive `notification.created`, `notification.read` events.
+- **Sync:** On connect, optionally fetch recent notifications to fill gaps.
+
+### Push Notifications (Optional)
+
+- Service Worker + Push API
+- Subscribe via `registration.pushManager.subscribe()`
+- Backend sends push via FCM/VAPID
+- On push event, show in-app toast or badge update
+
+## Performance Considerations
+
+- **Toast limiting:** Max 5 visible; queue the rest; consider dropping low-priority when queue exceeds 20.
+- **Virtualization:** Notification center list with `react-window` if 100+ items.
+- **Debounce mark-read:** Batch multiple mark-read calls if user rapidly clicks.
+- **Connection management:** Reconnect SSE/WebSocket on disconnect; exponential backoff. Avoid duplicate connections per tab (singleton).
+
+## Accessibility
+
+- **Live regions:** `aria-live="polite"` for toasts; `assertive` for errors so screen readers announce immediately.
+- **Focus:** When notification center opens, focus first item or a "View all" link; trap focus in modal variant.
+- **Dismiss:** Every toast has a close button; keyboard accessible (Enter/Space).
+- **Badge:** Announce "X unread notifications" when count changes for screen reader users.
+- **Reduced motion:** Respect `prefers-reduced-motion`; reduce or disable toast animation.
+
+## Trade-offs and Extensions
+
+**Trade-offs:** Toast vs. inline—toasts are non-blocking but can be missed; critical errors may need modal. SSE vs. WebSocket—SSE is simpler, one-way; WebSocket supports bidirectional. Polling fallback when SSE/WS unavailable.
+
+**Extensions:** Action buttons in toasts (Undo), notification grouping, sound for high-priority, user preferences (per-category mute), digest emails, mobile app parity.

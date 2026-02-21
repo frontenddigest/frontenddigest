@@ -1,0 +1,134 @@
+---
+title: "Design a Drag-and-Drop Kanban Board"
+description: "System design for a Kanban board like Trello: drag-drop between columns, reordering, optimistic updates, animations, mobile touch, multi-select, undo, and real-time collaboration."
+date: "2026-02-20"
+author: "Frontend Digest"
+audience: ["senior", "architect"]
+tags: ["system-design", "interview", "kanban", "drag-drop"]
+order: 8
+featured: false
+---
+
+Designing a Kanban board tests drag-and-drop mechanics, optimistic UI, animations, touch support, and real-time sync. Here's a structured approach.
+
+## Requirements Clarification
+
+### Functional Requirements
+
+- **Columns:** Boards contain columns (e.g., To Do, In Progress, Done); columns can be reordered.
+- **Cards:** Cards live in columns; can be dragged within a column or between columns.
+- **Operations:** Add/edit/delete columns and cards; reorder via drag.
+- **Multi-select:** Select multiple cards; bulk move or delete.
+- **Undo:** Undo recent moves and edits.
+- **Persistence:** Save order to backend; support real-time collaboration.
+
+### Non-Functional Requirements
+
+- Smooth animations during drag (60fps).
+- Touch support on mobile (drag with finger).
+- Optimistic updates—UI updates immediately; reconcile on server response.
+- Real-time: multiple users see changes (WebSocket/SSE).
+
+## High-Level Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        KanbanBoard                               │
+├─────────────────────────────────────────────────────────────────┤
+│  Column[]  (horizontal scroll or grid)                           │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐                         │
+│  │ Column 1 │ │ Column 2 │ │ Column 3 │                         │
+│  │ ┌──────┐ │ │ ┌──────┐ │ │ ┌──────┐ │                         │
+│  │ │ Card │ │ │ │ Card │ │ │ │ Card │ │   ← @dnd-kit / react-beautiful-dnd
+│  │ └──────┘ │ │ └──────┘ │ │ └──────┘ │                         │
+│  └──────────┘ └──────────┘ └──────────┘                         │
+├─────────────────────────────────────────────────────────────────┤
+│  State: board, selection, undoStack; WebSocket for real-time     │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+Use a DnD library like `@dnd-kit/core` or `react-beautiful-dnd` for cross-axis drag, keyboard support, and touch. Data flows: drag event → optimistic state update → API call → reconcile on success/rollback on failure.
+
+## Component Design
+
+### Board and Column
+
+**Board:** Contains columns; provides DnD context. Manages `boardId`, `columns` array, and `cards` keyed by column and position.
+
+**Column:** Droppable zone; renders cards; accepts cards from other columns. Each column has `id`, `title`, `cardIds` (ordered).
+
+```tsx
+interface Column {
+  id: string;
+  title: string;
+  cardIds: string[];
+  order: number;
+}
+
+interface Card {
+  id: string;
+  title: string;
+  description?: string;
+  columnId: string;
+  order: number;
+}
+```
+
+### Card Component
+
+Draggable item. Handles `onDragStart`, `onDragEnd`. Shows preview during drag; use `DragOverlay` from `@dnd-kit` to render a custom drag preview that follows the cursor.
+
+### DnD Strategy
+
+- **Containers:** Columns are droppable; cards are draggable.
+- **Cross-axis:** Allow drop in any column; compute `over` target to determine insert index.
+- **Sensors:** Pointer and keyboard sensors for mouse and keyboard; touch sensor for mobile.
+
+## State Management
+
+| State | Location | Notes |
+|-------|----------|-------|
+| `columns` | Array of `Column` | Order, `cardIds` per column |
+| `cards` | Map `cardId → Card` | Normalized; cards reference `columnId`, `order` |
+| `selection` | Set of `cardIds` | Multi-select; bulk operations |
+| `undoStack` | Array of patches | `{ type: 'move', cardId, fromColumn, toColumn, fromIndex, toIndex }` |
+| `isSyncing` | Local | Optimistic flag; show subtle indicator if pending |
+
+Use a reducer for moves: `MOVE_CARD(cardId, targetColumnId, targetIndex)` updates state and pushes to undo stack. Trigger API call in a side effect (useEffect or thunk).
+
+## API Design
+
+### Endpoints
+
+- `GET /boards/:id` — Load board with columns and cards
+- `PATCH /boards/:id` — Update column order
+- `PATCH /columns/:id` — Update card order in column
+- `POST /cards` — Create card; returns `id`
+- `PATCH /cards/:id` — Update card; move = update `columnId`, `order`
+- `DELETE /cards/:id` — Delete card
+
+### Real-Time (WebSocket)
+
+- **Join:** `ws://api/boards/:id/subscribe`
+- **Events:** `card_moved`, `card_created`, `card_updated`, `column_updated`
+- **Strategy:** On receiving remote event, merge into local state. If local optimistic update conflicts (same card moved by two users), last-write-wins or use operational transform. Include `version` or `updatedAt` for conflict resolution.
+
+## Performance Considerations
+
+- **Virtualization:** If columns or cards per column are very large, virtualize. Most Kanban boards have &lt;50 columns and &lt;100 cards per column—virtualization may not be needed initially.
+- **Animations:** Use CSS `transform` and `opacity` for drag; avoid layout thrashing. `@dnd-kit` uses CSS transforms by default.
+- **Debounce persistence:** Batch rapid reorders; send single PATCH after user stops dragging for 300ms.
+- **Optimistic updates:** Update UI immediately; on 4xx/5xx, revert and show toast. Use optimistic locking (version field or last-write-wins) to detect conflicts on save.
+
+## Accessibility
+
+- **Keyboard:** Tab through columns and cards; Space to pick/drop; Arrow keys to move. `@dnd-kit` provides keyboard support.
+- **ARIA:** `role="region"` for columns with `aria-label`; `role="button"` for cards when draggable; announce "Card X moved to column Y" for screen readers.
+- **Focus management:** After drop, focus the dropped card. Restore focus if drag is cancelled.
+- **Reduced motion:** Respect `prefers-reduced-motion`; disable or simplify drag animations.
+
+## Trade-offs and Extensions
+
+**Trade-offs:** `react-beautiful-dnd` is deprecated; `@dnd-kit` is the modern choice. Native HTML5 DnD is possible but has quirks (especially with touch). Optimistic UI improves perceived performance but requires rollback and conflict handling.
+
+**Extensions:** Card details modal, attachments, due dates, labels, filters, swimlanes, templates, activity log, permissions (private boards).

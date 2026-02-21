@@ -1,0 +1,161 @@
+---
+title: "Frontend API Layer Design"
+description: "Design a robust API abstraction layer between your UI and backend: REST vs GraphQL, BFF pattern, client architecture, error handling, and type-safe contracts."
+date: "2026-02-20"
+author: "Frontend Digest"
+audience: ["senior", "architect"]
+tags: ["api", "graphql", "rest", "architecture"]
+order: 12
+featured: false
+---
+
+The API layer is the contract between your frontend and the world. Get it wrong, and you'll pay in duplicated logic, brittle error handling, and endless refactoring. Get it right, and your UI components stay simple, your backend can evolve independently, and your team ships faster. This guide covers how to design that layer for production-grade frontends.
+
+## Designing the Abstraction Between UI and Backend
+
+### Single Responsibility: UI Doesn't Know About APIs
+
+Components should request data by intent ("get current user's cart") not by mechanism ("GET /api/users/123/cart"). Create a dedicated API layer—often a set of functions or hooks—that encapsulates endpoints, request shapes, and response transformation. Components call `getCart()` or `useCart()`; they never import `fetch` or see a URL.
+
+### Layers of Abstraction
+
+A well-structured API layer has three tiers:
+
+1. **Transport layer**: HTTP client setup (base URL, headers, interceptors)
+2. **Endpoint layer**: Functions that map to specific API operations (getUser, updateProfile)
+3. **Domain layer**: Higher-level operations that may orchestrate multiple calls (checkout = validateCart + createOrder + clearCart)
+
+Keep the transport layer thin and generic; push domain logic into the endpoint and domain layers where it's testable and reusable.
+
+## REST vs GraphQL From the Frontend Perspective
+
+### When REST Wins
+
+REST excels when your UI maps cleanly to resources and you rarely need to aggregate or reshape data. Simple CRUD apps, dashboards with predefined views, and apps where over-fetching is acceptable often work better with REST. Caching is straightforward (HTTP semantics), tooling is universal, and backend teams can add endpoints incrementally.
+
+### When GraphQL Wins
+
+GraphQL shines when you have multiple clients (web, mobile, embedded) with different data needs, when you want to avoid N+1 requests or over-fetching, and when your product team iterates on UI without backend changes. One query can fetch exactly what a view needs. The schema doubles as documentation and enables powerful tooling (codegen, GraphiQL).
+
+### The Real Trade-off: Complexity vs Flexibility
+
+REST is simpler to adopt and operate. GraphQL requires schema design, resolver implementation, and thinking about query complexity. Choose REST when your needs are predictable; choose GraphQL when your UI's data requirements are diverse and change frequently.
+
+## The BFF (Backend for Frontend) Pattern
+
+### What a BFF Is
+
+A BFF is a backend service that sits between your frontend and your domain services. It's tailored to the needs of a specific client—web, mobile, or a particular product area. The BFF aggregates, transforms, and sometimes caches data from multiple downstream services.
+
+### When and Why to Use One
+
+Use a BFF when:
+
+- Your UI needs data from several microservices in one request—the BFF does the orchestration.
+- You want to hide backend complexity (IDs, internal structures) from the client.
+- Mobile and web have different data requirements; each gets its own BFF.
+- You need server-side logic (auth, personalization) that shouldn't live in the browser.
+
+Avoid a BFF when a single backend already provides what you need or when adding a hop would hurt latency without clear benefit.
+
+## API Client Architecture
+
+### Centralized Client
+
+Use one configured client instance across the app. Configure base URL, timeouts, default headers (Authorization, Content-Type), and attach interceptors for cross-cutting concerns.
+
+```typescript
+const apiClient = createApiClient({
+  baseUrl: import.meta.env.VITE_API_URL,
+  timeout: 10000,
+  headers: { 'Content-Type': 'application/json' },
+});
+```
+
+### Interceptors: Auth, Logging, Retry
+
+Interceptors handle request/response pipeline logic. Common uses:
+
+- **Auth**: Attach `Authorization: Bearer ${token}` to every request; on 401, refresh the token and retry.
+- **Logging**: Log outgoing requests and errors for debugging.
+- **Retry**: On transient failures (network errors, 5xx), retry with exponential backoff.
+
+```typescript
+apiClient.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    if (error.config?.retryCount < 3 && isRetryable(error)) {
+      error.config.retryCount = (error.config.retryCount || 0) + 1;
+      await sleep(2 ** error.config.retryCount * 1000);
+      return apiClient.request(error.config);
+    }
+    return Promise.reject(error);
+  }
+);
+```
+
+### Auth Token Refresh
+
+When the access token expires, don't fail the user. Intercept 401 responses, call your refresh endpoint, update the token, and retry the original request. Use a single in-flight refresh to avoid concurrent refresh calls.
+
+## Error Handling Patterns
+
+### Error Boundaries and UI Fallbacks
+
+React error boundaries catch rendering errors. Use them around route-level or feature-level chunks so a crash in one area doesn't take down the app. Surface a friendly "Something went wrong" with a retry or support link.
+
+### Retry with Backoff and Graceful Degradation
+
+For network errors, retry automatically with exponential backoff. For 4xx/5xx, decide per endpoint: auth errors (401) trigger re-login; rate limits (429) might warrant retry after a delay; 500s can retry a few times or show a fallback. When all else fails, show partial content (cached data, empty states) rather than a blank screen.
+
+### Structured Error Types
+
+Define error types (NetworkError, ApiError, ValidationError) so your UI can branch: show a toast for validation errors, a full-page message for auth, and a retry button for transient failures.
+
+## Request Deduplication and Batching
+
+### Deduplication
+
+If multiple components request the same resource simultaneously (e.g., `getUser()` called from Header and Sidebar), send one request and share the result. Libraries like React Query and SWR do this automatically. If rolling your own, use a request cache keyed by URL + params.
+
+### Batching
+
+For GraphQL, use DataLoader or similar to batch multiple resolver calls into fewer round trips. For REST, consider a batch endpoint that accepts multiple operation IDs and returns consolidated responses—useful for list views that need related data.
+
+## Type-Safe API Contracts
+
+### OpenAPI Codegen
+
+If your backend exposes OpenAPI/Swagger, generate TypeScript types and a typed client. Changes to the schema surface as type errors in your frontend—catch breaking changes at build time.
+
+### GraphQL Codegen
+
+With GraphQL, use codegen (e.g., graphql-codegen) to generate types from your schema and typed hooks from your queries. You get autocomplete and compile-time safety for your API surface.
+
+### tRPC
+
+tRPC provides end-to-end types without codegen: your backend procedures are TypeScript functions, and the client infers types automatically. Best when frontend and backend are in the same repo and you control both.
+
+## Mocking APIs During Development
+
+### MSW (Mock Service Worker)
+
+MSW intercepts network requests at the network layer. Define handlers for your endpoints; your app code runs unchanged. MSW works in the browser, in tests, and in Storybook—one mock definition, multiple environments.
+
+```typescript
+import { http, HttpResponse } from 'msw';
+
+export const handlers = [
+  http.get('/api/cart', () => {
+    return HttpResponse.json({ items: [] });
+  }),
+];
+```
+
+### json-server
+
+For quick prototyping, json-server spins up a REST API from a JSON file. Point it at `db.json` and get CRUD for free. Good for demos; MSW is better for realistic, conditional mocks in development and tests.
+
+---
+
+A well-designed API layer makes your frontend resilient, type-safe, and easy to evolve. Centralize your client, invest in error handling and retries, choose REST or GraphQL based on real needs, and use codegen or tRPC for type safety. Your future self will thank you.

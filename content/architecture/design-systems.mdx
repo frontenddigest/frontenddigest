@@ -1,0 +1,106 @@
+---
+title: "Design Systems"
+description: "A comprehensive guide to building and scaling design systems: tokens, component APIs, Storybook, versioning, and adoption strategies."
+date: "2026-02-20"
+author: "Frontend Digest"
+audience: ["senior", "architect", "founder"]
+tags: ["design-systems", "components", "ui"]
+order: 4
+featured: true
+---
+
+A design system is a collection of reusable components, design tokens, and guidelines that ensure consistency across your product. Done well, it accelerates development, reduces design debt, and improves user experience. Done poorly, it becomes an expensive, underused artifact. This guide covers how to build one that sticks.
+
+## What Is a Design System and Why Build One
+
+### Beyond a Component Library
+
+A design system encompasses more than components: it includes design tokens (colors, spacing, typography), documentation, patterns, and principles. It codifies decisions so teams don't reinvent the wheel. The goal is consistency at scale—whether you have one team or fifty.
+
+### When the Investment Pays Off
+
+Build a design system when you have multiple products or teams sharing UI, when inconsistency is hurting brand or UX, or when you're spending too much time rebuilding the same patterns. Don't build one prematurely—a single app with one designer may not need the overhead. Start small and grow.
+
+## Component API Design Principles
+
+### Composition Over Configuration
+
+Prefer small, composable primitives over giant components with dozens of props. A `Button` with `variant`, `size`, and `iconPosition` is maintainable; a `Button` with 30 props becomes unmaintainable. Use composition: `ButtonGroup` wrapping `Button` children, not `Button group items={[...]}`.
+
+### Consistent Naming and Semantics
+
+Use consistent prop names across components: `size` (not `btnSize` in one place and `scale` in another), `disabled` (not `isDisabled` in components and `disabled` in others). Follow platform conventions (e.g., `aria-*` for accessibility) and document expected behavior.
+
+### Escape Hatches for Edge Cases
+
+Provide `className`, `style`, or `slot` props so consumers can extend or override when the default doesn't fit. Avoid locking users into rigid APIs—real products have edge cases. Document when to use escape hatches vs. requesting a new variant.
+
+## Tokens (Colors, Spacing, Typography)
+
+### Design Tokens as the Foundation
+
+Tokens are named variables that represent design decisions: `color.primary.500`, `spacing.md`, `font.body`. They ensure that changing a brand color updates it everywhere. Store tokens in a format tools can consume: JSON, CSS variables, or Style Dictionary output for multiple platforms.
+
+### Semantic vs. Primitive Tokens
+
+Primitive tokens are raw values (`blue-500`, `16px`). Semantic tokens map primitives to purpose (`color.action.primary`, `font.size.body`). Use semantic tokens in components so theming and dark mode become token swaps rather than component changes.
+
+### Typography Scale and Spacing Scale
+
+Define a typography scale (e.g., 12, 14, 16, 20, 24, 32px) and a spacing scale (e.g., 4, 8, 12, 16, 24, 32, 48px). Avoid arbitrary values—"one source of truth" only works if everyone uses the scale. Document when to break the scale for legitimate exceptions.
+
+## Building a Component Library (with Storybook)
+
+### Storybook as Living Documentation
+
+Storybook lets you develop and document components in isolation. Each component has stories for each variant, state, and edge case. Consumers see real, interactive examples rather than static mockups. Use Storybook for design review, QA, and onboarding.
+
+### Structuring Stories
+
+Organize stories by component, then by variant. Use args and controls for interactive props. Add documentation via MDX for guidelines, usage, and do's/don'ts. Run visual regression tests (Chromatic, Percy) against stories to catch unintended changes.
+
+### Publishing the Package
+
+Build components as an npm package. Use TypeScript for type safety; export types and ensure tree-shaking works. Support multiple entry points or subpath exports if the library grows large. Version with semver and maintain a changelog.
+
+## Versioning and Publishing
+
+### Semantic Versioning for Design Systems
+
+Use semver strictly: breaking API changes = major, new features = minor, fixes = patch. Design systems are dependencies—consumers need predictability. Document breaking changes in release notes and provide migration guides for major versions.
+
+### Monorepo and Selective Publishing
+
+Keep the design system in a monorepo with your apps. Use changesets or similar tooling to manage version bumps and changelogs. Consider publishing only changed packages to reduce noise. Automated release pipelines reduce human error.
+
+## Adoption Strategies and Documentation
+
+### Start with High-Traffic Surfaces
+
+Roll out the design system on new features and high-visibility pages first. Don't mandate a big-bang migration—incremental adoption reduces resistance. Provide codemods or migration scripts for common patterns. Celebrate early adopters.
+
+### Documentation That Developers Use
+
+Documentation must answer: when to use this component, what props it accepts, and what the alternatives are. Include code examples that copy-paste works. Add accessibility notes, keyboard behavior, and known limitations. Keep docs close to the code (e.g., in the repo) so they stay in sync.
+
+### Governance and Contribution
+
+Define who can add components, how proposals work, and how to request changes. A design system council (design + engineering) can review additions. Open contribution with clear guidelines prevents chaos; too much gatekeeping stifles adoption.
+
+## Measuring Design System Success
+
+### Usage and Adoption Metrics
+
+Track which components are used across apps, which versions are in use, and how many teams depend on the system. Low adoption of new components may indicate documentation gaps or poor fit. High usage of escape hatches may signal API gaps.
+
+### Impact on Velocity and Quality
+
+Measure time to implement common patterns before and after. Track design-dev handoff time, bug rates in UI code, and accessibility audit results. Tie metrics to business outcomes: faster feature delivery, fewer production issues, better Core Web Vitals.
+
+### Feedback Loops
+
+Regular surveys or office hours with consumers surface pain points. Monitor support channels and GitHub issues. Iterate based on feedback—a design system that doesn't evolve with product needs becomes obsolete.
+
+---
+
+A design system is a product that serves your product. Invest in tokens and APIs early, document relentlessly, and measure adoption and impact. Start small, grow intentionally, and remember that the best design system is the one people actually use.

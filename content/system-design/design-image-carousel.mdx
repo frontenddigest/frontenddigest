@@ -1,0 +1,124 @@
+---
+title: "Design a Performant Image Carousel"
+description: "System design for an image carousel/slider: touch/swipe, lazy loading, preloading, responsive breakpoints, autoplay, accessibility, and animation performance."
+date: "2026-02-20"
+author: "Frontend Digest"
+audience: ["senior", "architect"]
+tags: ["system-design", "interview", "carousel", "component"]
+order: 5
+featured: false
+---
+
+Designing a performant image carousel tests your understanding of gestures, animation performance, lazy loading, and accessibility. Here's a structured approach.
+
+## Requirements Clarification
+
+### Functional Requirements
+
+- Display a sequence of slides (images or mixed content).
+- Navigate via prev/next buttons, keyboard arrows, and touch swipe.
+- Optional: autoplay with configurable interval; pause on hover/focus.
+- Optional: infinite loop mode (wraps from last to first).
+- Optional: dots or thumbnails for direct slide selection.
+- Responsive: different slide counts or layouts per breakpoint.
+
+### Non-Functional Requirements
+
+- **Performance**: 60fps animations; no jank on low-end devices.
+- **Images**: Lazy-load off-screen slides; preload adjacent slides.
+- **Accessibility**: Keyboard navigation, focus management, ARIA live region, reduced motion support.
+- **Touch**: Smooth swipe with momentum; no conflicting scroll.
+
+## High-Level Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Carousel                                                        │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │ Track (overflow: hidden)                                      ││
+│  │  ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐                ││
+│  │  │ Slide 0│ │ Slide 1│ │ Slide 2│ │ Slide 3│  (translateX)   ││
+│  │  └────────┘ └────────┘ └────────┘ └────────┘                ││
+│  └─────────────────────────────────────────────────────────────┘│
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │ Controls: Prev | Next | Dots                                 ││
+│  └─────────────────────────────────────────────────────────────┘│
+│  useCarousel: index, goTo, touch handlers, autoplay timer        │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+Data flow: user/swipe/timer changes index → translate track → update lazy-load visibility → preload adjacent.
+
+## Component Design
+
+### Carousel
+
+Container with `overflow: hidden`. Manages `currentIndex` and `slides` array. Renders `CarouselTrack` and controls. Provides context for slide index and navigation.
+
+### CarouselTrack
+
+A single div wrapping all slides. Uses `transform: translateX(-${index * 100}%)` for movement. CSS `transition` for programmatic navigation; for swipe, apply inline transform from touch delta (no transition during drag). Use `will-change: transform` or `transform: translate3d(0,0,0)` to promote to GPU layer.
+
+### Slide
+
+Each slide is a child of the track. Receives `isActive`, `isAdjacent` (for preloading). Renders image with `loading="lazy"` when not in view; use `IntersectionObserver` or parent index to decide. For infinite loop, clone first/last slides at track ends and handle "teleport" when reaching clone.
+
+### useCarousel Hook
+
+- **State**: `currentIndex`, `isDragging`, `touchStartX`.
+- **Navigation**: `goTo(n)`, `next()`, `prev()`. In infinite mode, wrap index; when at clone, immediately jump to real slide without animation.
+- **Touch**: `onTouchStart` capture start X; `onTouchMove` update delta; `onTouchEnd` decide snap (threshold ~30% of width) and call `goTo`.
+- **Autoplay**: `useEffect` with `setInterval`; clear on pause (hover, focus), unmount.
+- **Keyboard**: Left/Right arrows; optional Home/End.
+
+```ts
+interface CarouselProps {
+  slides: { id: string; imageUrl: string; alt?: string }[];
+  infinite?: boolean;
+  autoplay?: boolean;
+  autoplayInterval?: number;
+  slidesPerView?: number;
+  onSlideChange?: (index: number) => void;
+}
+```
+
+## State Management
+
+- **currentIndex**: Local component state. Drives translate and active indicators.
+- **isDragging**: Disables autoplay and transition during swipe.
+- **Touch delta**: Ephemeral; used only during gesture.
+- **Lazy-load state**: Can derive from index—slides within ±1 or ±2 get loaded.
+
+## Animation Performance
+
+- **Use CSS transforms**: `translateX` (or `translate3d`) triggers compositor; avoid animating `left` or `margin`.
+- **GPU layer**: `will-change: transform` on track during animation; remove when idle to free memory.
+- **Reduce motion**: Check `prefers-reduced-motion: reduce`; replace transition with instant `transform` or no animation.
+- **RequestAnimationFrame**: For touch-following, update transform in rAF for smooth 60fps.
+
+## Lazy Loading and Preloading
+
+- **Lazy load**: Load images only when slide is active or adjacent. Use `loading="lazy"` or `IntersectionObserver` with root = carousel viewport.
+- **Preload adjacent**: When index changes, ensure prev/next slides have images loading. Set `fetchpriority="high"` or `<link rel="preload">` for next slide.
+- **Placeholder**: Show blur or low-res placeholder while loading; avoid layout shift with `aspect-ratio` or fixed dimensions.
+
+## Responsive Behavior
+
+- **Slides per view**: At breakpoint X, show 3 slides; at Y, show 1. Change `slidesPerView` via media query or hook; adjust translate formula (`index * (100 / slidesPerView)%`).
+- **Touch vs. mouse**: On touch devices, enable swipe; on desktop, buttons + optional drag. Detect via `'ontouchstart' in window` or pointer events.
+- **Swipe threshold**: Scale by slide width; 30% is a common threshold for "snap to next".
+
+## Accessibility
+
+- **Role and ARIA**: `role="region"` and `aria-roledescription="carousel"` on container. `aria-label` for navigation context.
+- **Live region**: `aria-live="polite"` with "Slide X of Y" updated on change. Announce for screen readers.
+- **Focus management**: Trap focus within carousel when open; or ensure prev/next buttons and dots are keyboard-reachable. After programmatic `goTo`, move focus to current slide or control.
+- **Keyboard**: ArrowLeft/ArrowRight for prev/next; optional Home/End for first/last.
+- **Pause**: Pause autoplay when focus enters carousel; resume on focus out. Or provide explicit "Pause" button.
+- **Reduced motion**: Honor `prefers-reduced-motion`; disable autoplay and use instant transitions.
+
+## Trade-offs and Extensions
+
+**Trade-offs**: CSS transitions vs. JS animation—CSS is simpler and GPU-accelerated; JS gives fine control (e.g., spring physics). Infinite loop adds complexity (clone slides, teleport); finite is simpler. All slides in DOM vs. virtualizing—for 5–20 slides, DOM is fine; for 100+, consider virtualizing visible + buffer.
+
+**Extensions**: Add thumbnails strip. Support video slides (pause others when one plays). Fullscreen mode. Zoom on click. Thumbnail strip with active indicator. RTL support. Vertical variant.

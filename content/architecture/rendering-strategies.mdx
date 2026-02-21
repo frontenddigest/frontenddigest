@@ -1,0 +1,148 @@
+---
+title: "Rendering Strategies"
+description: "CSR, SSR, SSG, RSC, and streaming: a comprehensive guide to choosing and mixing rendering strategies for modern frontends."
+date: "2026-02-20"
+author: "Frontend Digest"
+audience: ["senior", "architect", "founder"]
+tags: ["ssr", "ssg", "rendering", "react-server-components"]
+order: 9
+featured: true
+---
+
+Where and when your UI is rendered shapes everything: performance, SEO, developer experience, and infrastructure. This guide walks through the main rendering strategies, their trade-offs, and a decision framework for choosing the right approach—or mixing several in one application.
+
+## Client-Side Rendering (CSR)
+
+### How It Works
+
+The server sends a minimal HTML shell and a JavaScript bundle. The browser downloads and executes JS, which fetches data and renders the UI. The DOM is built entirely on the client.
+
+### Pros: Simplicity and Interactivity
+
+CSR is straightforward: one deploy, no server render logic, works with any static host (S3, Netlify, Vercel). Full interactivity from the start—no hydration mismatch. Great for dashboards, internal tools, and apps where SEO doesn't matter.
+
+### Cons: Slow FCP and SEO
+
+Until JS runs, the user sees a blank page or loading spinner. First Contentful Paint (FCP) and Largest Contentful Paint (LCP) suffer, especially on slow networks. Crawlers that don't execute JS may see empty content. Use CSR when the audience is authenticated, the content is behind login, or SEO is irrelevant.
+
+## Server-Side Rendering (SSR)
+
+### How It Works
+
+On each request, the server runs your app, fetches data, renders HTML, and sends a full page. The browser receives ready-to-paint HTML; then JS "hydrates" it—attaches event handlers and makes it interactive.
+
+### Hydration and Its Cost
+
+Hydration is the process of reconciling server HTML with client React. React walks the DOM and wires up components. Hydration is CPU-intensive and can cause input delay (INP) on low-end devices. Keep the initial component tree shallow and defer non-critical hydration.
+
+### Streaming SSR
+
+Instead of waiting for the full HTML, the server streams chunks as they're ready. The browser can start painting the header and layout before the slow data-dependent content arrives. Requires `<Suspense>` boundaries and a streaming-compatible framework (Next.js App Router, React 18+).
+
+### Pros and Cons
+
+SSR improves FCP and SEO—crawlers get full HTML. Dynamic per-request content works well. Cons: every request hits the server (higher compute cost), TTFB can be slow if data fetching is sequential, and hydration adds client-side work.
+
+## Static Site Generation (SSG)
+
+### Build-Time Rendering
+
+At build time, the framework pre-renders pages to static HTML. No server at request time—just serve files from a CDN. Blazing fast and cheap to host.
+
+### Incremental Static Regeneration (ISR)
+
+ISR lets you regenerate static pages after build. Set a `revalidate` period (e.g., 60 seconds). The first request after expiry triggers a background rebuild; subsequent requests get the stale page until the new one is ready. Best of static and dynamic: fast default, fresh data eventually.
+
+```ts
+// Next.js: ISR with 60-second revalidation
+export async function getStaticProps() {
+  const data = await fetchData();
+  return {
+    props: { data },
+    revalidate: 60,
+  };
+}
+```
+
+## React Server Components (RSC)
+
+### What They Are
+
+RSC are components that run only on the server. They don't ship to the client—no JS bundle. You can fetch data, access the filesystem or database, and render UI directly in the component. The output is a serialized format (RSC payload) that the client uses to render.
+
+### How They Differ from SSR
+
+SSR still sends component code to the client for hydration. RSC components never hydrate—they're server-only. You get "zero-bundle" components: a `DatePicker` used only on the server doesn't add to your bundle. RSC enable a new split: Server Components for data-heavy, non-interactive UI; Client Components for interactivity.
+
+### Zero-Bundle Components
+
+Import heavy libraries (markdown parsers, date formatters) in Server Components. They run on the server, and only the rendered output reaches the client. This can dramatically reduce bundle size for content-heavy pages.
+
+```tsx
+// Server Component: no client JS for this
+async function ProductDescription({ productId }) {
+  const product = await db.products.findById(productId);
+  const html = await markdownToHtml(product.description);
+  return <div dangerouslySetInnerHTML={{ __html: html }} />;
+}
+```
+
+## Streaming and Suspense
+
+### Progressive Rendering
+
+Streaming lets the server send HTML in chunks. A `<Suspense fallback={...}>` boundary causes the server to send the fallback first, then stream the resolved content when ready. The user sees structure immediately; slow parts fill in later.
+
+### Selective Hydration
+
+React can prioritize which parts of the tree to hydrate first. Wrapping interactive regions in `Suspense` allows the browser to hydrate critical pieces before non-critical ones. Reduces Time to Interactive (TTI) for key interactions.
+
+## Partial Pre-Rendering (PPR)
+
+### Static Shell + Dynamic Slots
+
+PPR combines a static shell (pre-rendered at build) with dynamic "slots" that are streamed at request time. The shell is cached at the edge; only the dynamic parts hit the origin. Ideal for pages with a mostly static layout and a few dynamic sections (e.g., header/footer static, personalized content dynamic).
+
+### When to Use PPR
+
+Use when you have a clear static/dynamic split and want the performance of static with the freshness of dynamic. Next.js 15+ supports PPR; other frameworks are adding similar capabilities.
+
+## Decision Framework: Which Strategy for Which Use Case
+
+### Blog or Documentation
+
+SSG or ISR. Content changes infrequently; static is fastest. Use ISR if you need near-real-time updates without full rebuilds.
+
+### Dashboard or Internal Tool
+
+CSR or lightweight SSR. SEO usually doesn't matter. Optimize for developer speed and interactivity. Add lazy loading for heavy routes.
+
+### E-Commerce Product Page
+
+SSR or SSG + ISR for product data. SEO is critical. Mix: static shell + dynamic pricing/inventory. Use RSC for product description (markdown, specs) to keep bundles small.
+
+### SaaS App with Auth
+
+SSR for landing and marketing (SEO); CSR or client-heavy for the app shell. Consider RSC for data-heavy, low-interactivity views (admin tables, reports).
+
+### Content + App Hybrid
+
+Mix strategies: SSG for blog, SSR for personalized homepage, CSR for app. Route-based: `/blog/*` → SSG, `/app/*` → CSR. Use the same codebase with framework-level configuration.
+
+## Real-World Patterns: Mixing Strategies
+
+### Per-Route Strategy
+
+Next.js App Router allows different strategies per route. `force-static` for some, `force-dynamic` for others. Layouts can be shared while page-level rendering varies.
+
+### Hybrid Data Fetching
+
+Fetch static data at build time, dynamic at request time. Example: product catalog from CMS at build, user-specific cart at request. Compose `getStaticProps` with client-side fetching for personalized bits.
+
+### Edge vs Origin
+
+Run some logic at the edge (fast, close to user) and heavy work at the origin. Use Edge Runtime for auth, geo, or simple transformations; keep database queries and complex logic on the origin.
+
+---
+
+No single strategy fits all. Start with your constraints: SEO, data freshness, scale, and team capability. Match the strategy to each part of the product, and leverage frameworks that let you mix approaches without fragmenting the codebase.

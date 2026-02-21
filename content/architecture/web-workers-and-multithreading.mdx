@@ -1,0 +1,184 @@
+---
+title: "Web Workers and Multithreading"
+description: "Offload CPU-intensive work from the main thread: Web Workers, Comlink, SharedArrayBuffer, worker pooling, and when to use workers vs requestIdleCallback."
+date: "2026-02-20"
+author: "Frontend Digest"
+audience: ["senior", "architect"]
+tags: ["web-workers", "performance", "multithreading"]
+order: 15
+featured: false
+---
+
+JavaScript runs on a single thread. When you run heavy computation—parsing large JSON, processing images, running complex algorithms—the main thread blocks. The UI freezes, input lags, and users assume your app is broken. Web Workers let you move that work off the main thread. This guide covers how to use them effectively and when they're the right tool.
+
+## The Single-Threaded Problem
+
+### Why Heavy Computation Blocks the UI
+
+The browser's main thread handles JavaScript, layout, paint, and input. If a long-running script occupies it, everything stalls: no animations, no scroll, no clicks. Users perceive anything over ~100ms as lag. A synchronous loop that processes 100,000 items can easily exceed that.
+
+### Identifying Main-Thread Bottlenecks
+
+Use Chrome DevTools Performance tab: record a session, look for long tasks (red/yellow blocks). Long tasks block the main thread and delay interaction. Also watch for "Long Task" warnings in Lighthouse. If you see script execution dominating your flame chart, consider offloading.
+
+## Web Workers: Dedicated Workers for CPU-Intensive Tasks
+
+### Basics
+
+A dedicated worker runs in a separate thread. You create one with `new Worker('worker.js')`. The worker has no DOM access—it can't touch `document` or `window`. Communication happens via `postMessage` and `onmessage`. Data is copied (structured clone) unless you use transferable objects.
+
+```javascript
+// main.js
+const worker = new Worker('/worker.js');
+worker.postMessage({ type: 'process', data: largeArray });
+worker.onmessage = (e) => {
+  console.log('Result:', e.data);
+};
+```
+
+```javascript
+// worker.js
+self.onmessage = (e) => {
+  if (e.data.type === 'process') {
+    const result = heavyComputation(e.data.data);
+    self.postMessage(result);
+  }
+};
+```
+
+### Worker Scope
+
+Workers run in a different global scope (`self` or `WorkerGlobalScope`). They can import scripts with `importScripts()`, use `fetch`, and run timers. They cannot access the DOM, `localStorage` (synchronously), or most browser APIs that require a document.
+
+## Comlink: Making Worker Communication Feel Like Function Calls
+
+### The Ergonomics Problem
+
+Raw `postMessage` is cumbersome: you serialize requests, handle async responses, map message types to handlers. Comlink wraps workers with a proxy so you can call worker functions as if they were local.
+
+```javascript
+// main.js
+import * as Comlink from 'comlink';
+
+const worker = new Worker('/worker.js');
+const api = Comlink.wrap(worker);
+
+// Feels like a normal async function call
+const result = await api.processData(largeArray);
+```
+
+```javascript
+// worker.js
+import * as Comlink from 'comlink';
+
+Comlink.expose({
+  processData(data) {
+    return heavyComputation(data);
+  },
+});
+```
+
+### When to Use Comlink
+
+Use Comlink when you have multiple worker methods or when you want to avoid manual message protocol design. It adds a small library overhead but significantly improves maintainability.
+
+## SharedArrayBuffer and Atomics
+
+### When You Need Shared Memory
+
+By default, `postMessage` copies data. For large buffers (e.g., image pixels, audio samples), copying is expensive. `SharedArrayBuffer` lets the main thread and worker share memory. No copy—but you need synchronization to avoid race conditions.
+
+### Atomics for Synchronization
+
+`Atomics` provide lock-free primitives: `add`, `compareExchange`, `wait`, `notify`. Use them to coordinate access to shared memory. Without proper synchronization, you get data races and undefined behavior.
+
+### Caveats
+
+SharedArrayBuffer requires specific HTTP headers (`Cross-Origin-Opener-Policy`, `Cross-Origin-Embedder-Policy`) due to Spectre-related security restrictions. Not all environments support it. Use only when you have true shared-memory needs (e.g., WASM with threading, high-performance game loops).
+
+## Use Cases: Image Processing, Parsing, Search, Encryption
+
+### Image Processing
+
+Decoding, resizing, or applying filters to images is CPU-heavy. Offload to a worker: send `ImageBitmap` or `ArrayBuffer` (transferable), process in worker, return result. Keeps the UI responsive during photo uploads or canvas manipulations.
+
+### Data Parsing
+
+Parsing large JSON (e.g., 10MB+ config), CSV, or XML on the main thread can freeze the app. Parse in a worker and post the structured result back. For streaming parsers, consider chunked processing with progress updates.
+
+### Search and Indexing
+
+Building a search index (e.g., for client-side search across thousands of items) involves tokenization, indexing, and sorting. Do it in a worker. Search queries can also run in the worker to keep the main thread free during typing.
+
+### Encryption
+
+Crypto operations (hashing, encryption) can be CPU-intensive. Web Crypto API runs async, but some libraries do work on the main thread. For heavy workloads, use a worker or ensure your crypto library is optimized.
+
+### Syntax Highlighting
+
+Highlighting large code blocks (e.g., in an editor) involves parsing and tokenization. Libraries like Shiki or Prism can run in a worker. Send raw text, receive highlighted HTML or tokens.
+
+## Transferable Objects
+
+### Moving Data Efficiently
+
+When you `postMessage` an `ArrayBuffer` or `ImageBitmap`, you can pass it as a transferable. The object is moved—ownership transfers to the recipient, and the sender's reference becomes detached. Zero-copy; no structured clone overhead.
+
+```javascript
+const buffer = new ArrayBuffer(1024 * 1024);
+worker.postMessage({ buffer }, [buffer]);
+// buffer is now detached in main thread
+```
+
+Use transferables for large binary data. Be careful: after transfer, the original reference is unusable.
+
+## Worker Pooling for Parallel Task Execution
+
+### Why Pool?
+
+Creating a worker has overhead. For many short tasks, spawning a new worker per task is wasteful. A pool reuses workers. You submit tasks to the pool; it assigns them to idle workers and returns results.
+
+### Implementation Pattern
+
+Maintain an array of workers and a queue of pending tasks. When a task arrives, assign it to an idle worker. When a worker finishes, assign the next queued task or mark it idle. Libraries like `workerpool` or `threads.js` provide this.
+
+```javascript
+const pool = new WorkerPool('/worker.js', navigator.hardwareConcurrency || 4);
+const results = await Promise.all(
+  chunks.map((chunk) => pool.run(processChunk, chunk))
+);
+```
+
+## OffscreenCanvas: Rendering Off the Main Thread
+
+### The API
+
+`OffscreenCanvas` lets you run canvas operations in a worker. Create an `OffscreenCanvas`, transfer it to a worker, and render there. The main thread stays free for input and layout.
+
+### Use Cases
+
+Rendering charts, maps, or game frames in a worker. Decoding video frames to a canvas. Any canvas-heavy animation that doesn't need to block the main thread. Support is still evolving—check caniuse.
+
+## Practical Patterns: Worker vs requestIdleCallback vs setTimeout
+
+### When to Use a Worker
+
+Use workers for CPU-bound work: parsing, computation, encryption, image processing. Work that will take tens or hundreds of milliseconds and would otherwise block the main thread.
+
+### requestIdleCallback
+
+For low-priority, deferrable work that can be chunked (e.g., prefetching, analytics, non-critical UI updates), use `requestIdleCallback`. It runs when the browser is idle. Don't put heavy work here—you have a limited time budget.
+
+### setTimeout(0) / Scheduler.yield()
+
+Yielding with `setTimeout` or `scheduler.yield()` (when available) breaks up long tasks into smaller chunks. Each chunk runs, then yields to the event loop. Helps avoid "long task" warnings. Use for work that must run on the main thread but can be chunked—not for true CPU offload.
+
+### Decision Flow
+
+- Must touch DOM? → Main thread (chunk with yield if heavy)
+- CPU-intensive, no DOM? → Worker
+- Low priority, can wait? → requestIdleCallback
+
+---
+
+Web Workers unlock parallel execution in the browser. Use them for CPU-intensive tasks that would block the UI. Prefer Comlink for ergonomics, use transferables for large data, and consider worker pools for many tasks. Not every app needs workers—but when you do, they're the right tool.

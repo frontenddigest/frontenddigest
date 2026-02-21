@@ -1,0 +1,208 @@
+---
+title: "Progressive Web Apps"
+description: "Build installable, offline-capable web apps: Web App Manifest, service worker lifecycle, caching strategies, background sync, push notifications, and testing PWAs."
+date: "2026-02-20"
+author: "Frontend Digest"
+audience: ["senior", "architect", "founder"]
+tags: ["pwa", "service-workers", "offline", "mobile"]
+order: 14
+featured: false
+---
+
+Progressive Web Apps (PWAs) bridge the gap between web and native. They're installable, work offline, and can send push notifications—all without an app store. For many use cases, a PWA delivers 80% of native benefits at a fraction of the cost. This guide covers what makes a PWA, how to build one, and when it's the right choice.
+
+## What Makes a Progressive Web App
+
+### The Three Pillars
+
+A PWA is characterized by three capabilities:
+
+1. **Installability**: Users can add the app to their home screen. On desktop, they get a standalone window; on mobile, a fullscreen app-like experience.
+2. **Offline support**: Core content and functionality work without a network. Service workers cache assets and API responses.
+3. **Push notifications**: Users receive notifications even when the app isn't open—re-engagement and timely updates.
+
+### The Baseline
+
+To be considered a PWA, you need: HTTPS, a valid Web App Manifest, a registered service worker, and responsive design. Meet these, and browsers will offer the "Add to Home Screen" prompt (on supported platforms).
+
+## Web App Manifest
+
+### Required Fields
+
+`manifest.json` describes your app to the browser:
+
+```json
+{
+  "name": "My App",
+  "short_name": "My App",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#3b82f6",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
+```
+
+### Display Modes
+
+- `standalone`: Looks like a native app (no browser chrome)
+- `minimal-ui`: Minimal browser UI (back, refresh)
+- `browser`: Full browser experience
+- `fullscreen`: Immersive (e.g., games)
+
+### Icons and Theme Colors
+
+Provide icons at 192x192 and 512x512 minimum. Use `purpose: "maskable"` for icons that may be cropped into shapes (Android). `theme_color` tints the status bar and browser chrome; `background_color` shows during splash.
+
+## Service Worker Lifecycle
+
+### Install, Activate, Fetch
+
+Service workers have a strict lifecycle:
+
+1. **Install**: The browser downloads the worker script. Your `install` handler runs once. Use it to precache critical assets. Call `skipWaiting()` to activate immediately (otherwise, it waits for all tabs to close).
+
+2. **Activate**: The new worker takes control. Use `activate` to clean old caches (delete caches from previous versions). Call `clients.claim()` to control all open pages immediately.
+
+3. **Fetch**: Every request from controlled pages passes through the worker's `fetch` handler. This is where you implement caching strategies.
+
+### Versioning and Updates
+
+Change the service worker file (even a comment) to trigger an update check. When a new worker is found, it installs in parallel. The old worker serves requests until the new one activates. Design your cache keys to include a version so old caches can be safely deleted.
+
+## Offline Strategies: Cache-First, Network-First, Stale-While-Revalidate
+
+### Cache-First
+
+For static assets (JS, CSS, images) that are versioned by filename, serve from cache. If not in cache, fetch from network. Fast, works offline, but you must change filenames on updates.
+
+### Network-First
+
+For API data and dynamic content, try network first. On failure (offline, 5xx), fall back to cache. Ensures freshness when online; degrades gracefully when offline.
+
+### Stale-While-Revalidate
+
+Serve from cache immediately (fast), then fetch in background and update cache for next time. Best for content that benefits from freshness but shouldn't block rendering. Common for API responses and non-critical assets.
+
+```javascript
+// Stale-while-revalidate: serve cache immediately, revalidate in background
+self.addEventListener('fetch', (event) => {
+  if (event.request.url.includes('/api/')) {
+    event.respondWith(
+      caches.open('api-cache').then(async (cache) => {
+        const cached = await cache.match(event.request);
+        const fetchPromise = fetch(event.request).then((response) => {
+          cache.put(event.request, response.clone());
+          return response;
+        });
+        return cached || fetchPromise;
+      })
+    );
+  }
+});
+```
+
+## Background Sync
+
+### Deferred Actions
+
+Background Sync lets you defer actions until the user has connectivity. Example: user fills a form offline; you queue the submission and register a sync event. When the connection returns, the browser fires your sync handler and you retry.
+
+```javascript
+// In your app
+navigator.serviceWorker.ready.then((registration) => {
+  registration.sync.register('submit-form');
+});
+
+// In service worker
+self.addEventListener('sync', (event) => {
+  if (event.tag === 'submit-form') {
+    event.waitUntil(submitQueuedForm());
+  }
+});
+```
+
+### Limitations
+
+Background Sync requires user engagement (recent interaction). It's best-effort—the browser may delay or skip syncs to save battery. Don't rely on it for critical, time-sensitive operations.
+
+## Push Notifications
+
+### Subscription Flow
+
+1. Request permission: `Notification.requestPermission()`
+2. Get a push subscription: `registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: vapidKey })`
+3. Send the subscription (endpoint + keys) to your backend
+4. Backend uses a push service (e.g., FCM, Web Push) to send messages
+
+### Handling Notifications
+
+When a push arrives, the service worker's `push` event fires. You can show a notification, update a badge, or sync data in the background. Always show a notification when the user isn't on your site—browsers require `userVisibleOnly: true` for good reason.
+
+### UX Best Practices
+
+- Request permission at a meaningful moment (e.g., after user completes an action that benefits from notifications)
+- Explain the value: "Get alerts when your order ships"
+- Don't spam; batch or prioritize
+- Provide a clear way to manage preferences in-app
+
+## App Shell Architecture
+
+### What It Is
+
+The app shell is the minimal HTML, CSS, and JS required to render the application structure (header, nav, container) without content. Cache the shell aggressively so repeat visits load instantly. Load content (API data) on top—cache that with network-first or stale-while-revalidate.
+
+### Benefits
+
+First load: shell + content. Subsequent loads: instant shell from cache, then content. The shell is small and versioned; content varies. This pattern is especially powerful with frameworks that support code-splitting and lazy routes.
+
+## PWA vs Native App: Honest Comparison
+
+### When PWA Wins
+
+- **Reach and distribution**: No app store approval, instant updates, shareable URLs
+- **Cost**: One codebase for web and installable
+- **Discovery**: SEO, links, no install friction for first use
+- **Use cases**: Content apps, dashboards, e-commerce, internal tools
+
+### When Native Still Wins
+
+- **Hardware access**: Bluetooth, NFC, advanced sensors, background location
+- **App store presence**: Some users only discover via stores; store features (in-app purchase, subscriptions) are more mature
+- **Performance**: Native can be faster for graphics-heavy or CPU-intensive workloads
+- **Platform integration**: Deep OS integration, widget support
+
+### The Hybrid Path
+
+Many successful "apps" are PWAs wrapped in a native shell (e.g., Capacitor, Cordova) when they need store distribution or occasional native APIs. You get one codebase with optional native escape hatches.
+
+## Testing PWAs
+
+### Lighthouse Audit
+
+Lighthouse's PWA category checks manifest, service worker, HTTPS, viewport, and installability. Run it in CI to catch regressions. Aim for a perfect PWA score on your main routes.
+
+### Offline Testing
+
+Use Chrome DevTools: Application > Service Workers > Offline. Test your critical paths with network throttling and offline mode. Ensure users can at least see cached content and a clear "You're offline" message when appropriate.
+
+### Update Flow Testing
+
+Verify that when you deploy a new service worker, users eventually get it. Test the update flow: open two tabs, update the worker, close one tab, confirm the other picks up the new worker on next navigation. Document your update strategy for the team.
+
+---
+
+PWAs are a powerful option for installable, offline-capable web experiences. Invest in a solid manifest, thoughtful caching strategies, and clean service worker lifecycle management. Use push and background sync where they add value. For many products, a PWA is the right balance of reach, cost, and capability.

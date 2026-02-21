@@ -1,0 +1,94 @@
+---
+title: "State Management at Scale"
+description: "Master state architecture for large frontend applications: when to use local vs global state, library trade-offs, server state, and state machine patterns."
+date: "2026-02-20"
+author: "Frontend Digest"
+audience: ["senior", "architect"]
+tags: ["state-management", "redux", "architecture"]
+order: 3
+featured: false
+---
+
+State management is one of the most debated topics in frontend architecture. The right approach depends on your app's scale, team structure, and the nature of your data. This guide covers when to use which strategy, popular library trade-offs, and patterns that work for large-scale applications.
+
+## Local vs Global State — When to Use Which
+
+### The Colocation Principle
+
+The best default is to keep state as local as possible. If a piece of state is only used within a single component or a small subtree, store it there with `useState` or `useReducer`. Colocation reduces coupling, makes components easier to test, and eliminates unnecessary re-renders. Ask: "Who needs this data?" If the answer is one component, keep it local.
+
+### When to Go Global
+
+Lift state when multiple unrelated components need the same data, when you need to persist state across route changes, or when the data represents domain-level concerns (current user, auth status, theme). Shared UI state (modals, toasts, sidebar collapsed) often belongs in a lightweight global store rather than prop drilling through many layers.
+
+## Redux, Zustand, Jotai, Recoil — Comparing Approaches
+
+### Redux: The Battle-Tested Pattern
+
+Redux provides predictable state updates via actions and reducers, excellent devtools, middleware for side effects, and a large ecosystem. It shines when you have complex update logic, need time-travel debugging, or want strict conventions. The trade-off: boilerplate and ceremony. Use Redux when your team values consistency, you have many developers touching state, or you need middleware for cross-cutting concerns (logging, analytics, persistence).
+
+### Zustand: Minimalist and Flexible
+
+Zustand offers a tiny API with hooks, no providers, and minimal boilerplate. You create a store with `create()` and subscribe with `useStore()`. It scales from simple to complex—you can add slices, middleware, or persistence as needed. Zustand is ideal when you want global state without Redux's structure, or when migrating incrementally from component state.
+
+### Jotai and Recoil: Atomic State
+
+Both use an atomic model: state is split into small pieces (atoms) that components subscribe to independently. Updates to one atom don't trigger re-renders for components using others. Jotai is more minimal; Recoil has more features (async selectors, persistence). Choose atomics when you have many independent pieces of state and want fine-grained subscription—great for complex forms, feature flags, or preferences.
+
+## Server State with React Query / TanStack Query
+
+### Why Server State Is Different
+
+Server state—data from your API—has different lifecycles than client state. It can be stale, needs caching, refetching, and invalidation. Treating server data as regular global state leads to manual caching logic, race conditions, and duplicate requests. React Query (TanStack Query) solves this by treating server state as a first-class citizen: automatic caching, background refetch, deduplication, and optimistic updates.
+
+### Integration with Client State
+
+Keep server state in React Query and client state in Redux, Zustand, or local state. Don't put API responses in Redux "for consistency"—you'll duplicate what React Query already does. Use React Query for all async data; use your global store for UI state and domain state that truly lives on the client.
+
+## URL as State (Query Params, Routing State)
+
+### When the URL Is the Source of Truth
+
+Search filters, pagination, sort order, tab selection, and modal visibility can all live in the URL. Benefits: shareable links, back/forward navigation, and bookmarking. Use query params for filter state in list views; use route params for entity IDs and nested routes. Libraries like TanStack Router and Next.js App Router make this ergonomic.
+
+### Syncing URL and Component State
+
+Keep URL as the source of truth. Read from `searchParams` or `useSearchParams()` and derive component state from it. Avoid two-way sync—that leads to inconsistency. When the user changes a filter, update the URL; when the URL changes (e.g., back button), the component re-renders with the new params.
+
+## State Machine Patterns (XState)
+
+### When Determinism Matters
+
+For flows with strict sequences—checkout, onboarding, multi-step forms—state machines prevent invalid states. You define states, events, and transitions. The machine only allows valid transitions, making bugs like "submit before validation" impossible. XState provides a robust implementation with visualization, testing support, and integration with React.
+
+### Use Cases and Trade-offs
+
+State machines excel at workflows with clear phases and guarded transitions. They add structure but also complexity—not every component needs a full state machine. Use XState when the flow has many branches, error states, or parallel sub-flows. For simple toggles or linear flows, `useReducer` may be enough.
+
+## Performance Pitfalls of Over-Centralized State
+
+### Subscription and Re-render Bloat
+
+Putting everything in one global store causes every store update to potentially trigger re-renders across the app. Use selectors that return stable references; with Redux, ensure ` useSelector` uses shallow equality and consider `useSelector` with a stable selector. With Zustand, subscribe to slices, not the whole store.
+
+### Serialization and Memory
+
+Large objects in global state can cause memory pressure and slow serialization (e.g., for persistence or devtools). Normalize nested data, keep the store minimal, and derive computed values instead of storing them. Avoid putting non-serializable data (functions, class instances, DOM nodes) in the store.
+
+## Patterns for Large-Scale Applications
+
+### Domain Slices
+
+Split state by domain (auth, products, cart, checkout) rather than by technical concern. Each slice owns its data, reducers/actions, and selectors. This scales across teams—each team owns one or more slices.
+
+### Feature-Based State
+
+Colocate state with features. A feature module exports its store slice, components, and routes. New features add new slices without touching core infrastructure. Redux Toolkit's `createSlice` and Zustand's store composition support this pattern well.
+
+### Incremental Adoption
+
+You don't need one solution. Use local state by default, add Zustand for shared UI state, React Query for server state, and Redux (or similar) only where complex logic demands it. Migrate incrementally rather than rewriting; multiple stores can coexist.
+
+---
+
+State management at scale is about choosing the right tool for each type of state and avoiding over-engineering. Start local, lift only when needed, treat server state separately, and use the URL when appropriate. The best architecture is the one that stays maintainable as your team and product grow.

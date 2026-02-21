@@ -1,0 +1,122 @@
+---
+title: "Managing Tech Debt"
+description: "Understanding, quantifying, and managing tech debt: types, tracking, making the case to leadership, and prevention strategies."
+date: "2026-02-20"
+author: "Frontend Digest"
+audience: ["senior", "architect", "founder"]
+tags: ["tech-debt", "refactoring", "strategy"]
+order: 5
+featured: false
+---
+
+Tech debt is inevitable—it's the natural result of shipping under constraints. The question isn't whether you have it, but whether you manage it. This guide covers what tech debt actually is, how to quantify and track it, how to advocate for paydown, and how to prevent it from overwhelming your team.
+
+## What Tech Debt Actually Is (and Isn't)
+
+### Ward Cunningham's Original Metaphor
+
+Tech debt is borrowed time. You take a shortcut to ship faster; you pay interest (extra effort) on future changes until you pay down the principal (refactor). Like financial debt, some is strategic and some is reckless. The metaphor helps non-engineers understand trade-offs.
+
+### Tech Debt vs. Bad Code
+
+Not all bad code is tech debt. Tech debt implies a deliberate decision—"we're taking a shortcut because X." Accidental messiness, lack of knowledge, or copy-paste without intent isn't debt; it's just poor quality. Debt has a rationale; sloppiness doesn't.
+
+### When Debt Is Acceptable
+
+Early-stage startups often take on debt to validate the product. Speed matters more than perfection. The key: acknowledge it, track it, and plan to pay it down before it compounds. Denying debt or pretending it doesn't exist is when it becomes toxic.
+
+## Types of Tech Debt (Deliberate, Accidental, Bit Rot)
+
+### Deliberate Debt
+
+You consciously chose a shortcut: "We'll use a quick hack for now and refactor in Q2." Document it. Create a ticket. Schedule the paydown. Deliberate debt with a plan is manageable.
+
+### Accidental Debt
+
+You didn't know a better way at the time. Requirements changed and the design no longer fits. The team grew and patterns diverged. Accidental debt accumulates when there's no process to catch and address it. Code reviews, retrospectives, and architecture reviews help surface it.
+
+### Bit Rot
+
+Code degrades over time even without changes. Dependencies go unmaintained. Patterns become outdated. The ecosystem evolves. Bit rot is environmental—you combat it with regular updates, dependency audits, and periodic modernization.
+
+## Quantifying and Tracking Tech Debt
+
+### Subjective Assessment
+
+Engineers know where the pain is. Run a debt inventory: "What are the top 5 places that slow us down?" Aggregate across the team. Prioritize by impact: What slows delivery? What causes bugs? What blocks new features?
+
+### Metrics That Help
+
+Track build times, test suite duration, deployment frequency, incident rates. Correlate with areas of known debt. "Our monolith's test suite takes 45 minutes" is a quantifiable cost. Use these numbers when advocating for paydown.
+
+### Debt Registers and Backlogs
+
+Maintain a tech debt backlog. Tag tickets as debt. Estimate interest: how much does this cost us per sprint? Principal: how long to fix? Interest-to-principal ratio guides priority—high-interest, low-principal items get attention first.
+
+## Making the Case for Tech Debt Paydown to Leadership
+
+### Speak in Business Terms
+
+"Reduce coupling in the checkout module" doesn't resonate. "Reduce checkout bugs by 40% and cut release cycle from 2 weeks to 1" does. Translate technical work into business outcomes: reliability, speed, cost, risk.
+
+### Show the Cost of Inaction
+
+What happens if we do nothing? Slower delivery, more incidents, harder hiring (who wants to work in a mess?), eventual rewrites. Quantify where possible. "We're spending 20% of our capacity working around this—that's X engineer-months per year."
+
+### Propose a Plan, Not a Blank Check
+
+Leadership fears open-ended "we need to refactor." Propose a bounded initiative: "We'll spend 2 sprints paying down the payment module debt; here's the before/after." Specific, time-bound requests get approved more often.
+
+## The 20% Rule and Other Allocation Strategies
+
+### Dedicated Debt Sprints
+
+Some teams allocate every Nth sprint to debt (e.g., every 5th sprint). Predictable, but can feel disconnected from product flow. Works when debt is localized and can be tackled in chunks.
+
+### The 20% Rule
+
+Reserve 20% of capacity for tech debt and maintenance. Each sprint, 80% features, 20% debt. Prevents runaway accumulation. Requires discipline—it's the first thing cut when deadlines loom. Protect it.
+
+### Boy Scout Rule
+
+Leave the codebase better than you found it. Every PR includes a small cleanup. No dedicated debt time, but continuous improvement. Works for gradual erosion of debt; doesn't work for large, systemic problems.
+
+### Just-in-Time Refactoring
+
+Refactor when you touch the code. Adding a feature? Clean up the area first. Prevents debt from growing in active areas. Risk: you never touch the worst areas, so they never get fixed.
+
+## Incremental Refactoring Techniques
+
+### Strangler Fig Pattern
+
+Wrap or replace legacy code incrementally. New code lives beside old; traffic gradually shifts. Avoid big-bang rewrites. Works for APIs, services, and UI components. Requires clear boundaries.
+
+### Expand-Contract (Parallel Change)
+
+Add new behavior alongside old; migrate callers; remove old. Used for API changes, schema migrations. Low risk—rollback is possible at each step. More steps, but each is small.
+
+### Feature Flags and Branch by Abstraction
+
+Introduce an abstraction (interface, facade) and switch implementations behind a flag. Migrate incrementally; toggle when ready. Allows gradual replacement without blocking releases.
+
+## Preventing Tech Debt Accumulation
+
+### Code Review Standards
+
+Reviews should catch design shortcuts and poor patterns. "Is this going to hurt us later?" Establish guidelines: no known-debt without a ticket, no copy-paste without abstraction. Empower reviewers to push back.
+
+### Architecture Decision Records
+
+Document significant decisions and their rationale. When context is lost, debt looks like nonsense. ADRs preserve the "why" and make future refactoring decisions informed.
+
+### Automated Guards
+
+Linters, type checkers, and CI gates prevent certain classes of debt. Enforce formatting, complexity limits, and dependency rules. Automate what can be automated; reserve human judgment for the rest.
+
+### Hiring for Maintainability
+
+Some engineers optimize for speed at all costs. Hire people who care about maintainability. Reward "we could hack this, but here's a cleaner approach" discussions. Culture shapes whether debt is normalized or resisted.
+
+---
+
+Tech debt is a fact of life. Manage it by understanding its types, quantifying its cost, and making the case in business terms. Allocate capacity—whether 20% per sprint or dedicated initiatives—and use incremental techniques to pay it down. Prevent accumulation through reviews, documentation, and culture. The goal isn't zero debt; it's debt that's acknowledged, tracked, and under control.

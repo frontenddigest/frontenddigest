@@ -1,0 +1,204 @@
+---
+title: "Performance Optimization Patterns"
+description: "Comprehensive patterns for frontend performance: code splitting, lazy loading, prefetching, bundle analysis, memory management, and RUM."
+date: "2026-02-20"
+author: "Frontend Digest"
+audience: ["senior", "architect", "founder"]
+tags: ["performance", "optimization", "patterns"]
+order: 8
+featured: true
+---
+
+Performance is not an afterthought—it's a feature. Users abandon slow sites; search rankings penalize poor Core Web Vitals. This guide covers the optimization patterns that separate production-grade frontends from prototypes, with practical strategies you can apply immediately.
+
+## Code Splitting Strategies
+
+### Route-Based Splitting
+
+Split your bundle by route. Each route loads only the JS it needs. In React Router or Next.js, use dynamic imports so each page is a separate chunk.
+
+```tsx
+// Route-based: each page is a chunk
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Settings = lazy(() => import('./pages/Settings'));
+
+<Suspense fallback={<PageSkeleton />}>
+  <Routes>
+    <Route path="/dashboard" element={<Dashboard />} />
+    <Route path="/settings" element={<Settings />} />
+  </Routes>
+</Suspense>
+```
+
+### Component-Based Splitting
+
+Lazy-load heavy components that appear below the fold or in modals. A charting library, a rich text editor, or a video player shouldn't block initial paint.
+
+```tsx
+const HeavyChart = lazy(() => import('./components/HeavyChart'));
+
+function Analytics() {
+  const [showChart, setShowChart] = useState(false);
+  return (
+    <>
+      <button onClick={() => setShowChart(true)}>Load Chart</button>
+      {showChart && (
+        <Suspense fallback={<ChartSkeleton />}>
+          <HeavyChart />
+        </Suspense>
+      )}
+    </>
+  );
+}
+```
+
+### Library-Based Splitting
+
+Isolate vendor-heavy libraries (moment.js, lodash, PDF viewers) into their own chunks. Use dynamic imports at usage sites so they load only when needed. Consider lighter alternatives: date-fns instead of moment, lodash-es with tree shaking.
+
+## Lazy Loading and Dynamic Imports
+
+### React.lazy and dynamic import()
+
+`React.lazy()` wraps a dynamic `import()` and returns a component that suspends until the module loads. Always pair with `Suspense` and provide a meaningful fallback. The fallback affects LCP—use a skeleton that matches the eventual layout.
+
+### Intersection Observer for Images and Components
+
+Lazy-load images when they enter the viewport. Native `loading="lazy"` works for images; for more control, use Intersection Observer:
+
+```tsx
+function LazyImage({ src, alt }) {
+  const [inView, setInView] = useState(false);
+  const ref = useRef();
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => entry.isIntersecting && setInView(true),
+      { rootMargin: '100px' }
+    );
+    if (ref.current) observer.observe(ref.current);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div ref={ref} style={{ minHeight: 200 }}>
+      {inView && <img src={src} alt={alt} />}
+    </div>
+  );
+}
+```
+
+## Prefetching and Preloading
+
+### Link Prefetch
+
+Use `<link rel="prefetch">` for next likely navigation. The browser fetches the resource at low priority. Next.js does this automatically for `<Link>` components in the viewport.
+
+### Route Prefetching
+
+Prefetch route chunks when the user hovers a link or when a link enters the viewport. Cuts perceived navigation time to near-instant.
+
+### Data Prefetching
+
+Prefetch API data for routes the user might visit. React Query's `prefetchQuery` and Next.js `getServerSideProps`/`getStaticProps` enable this. Prefetch on hover, during idle time, or when high-priority content has finished loading.
+
+## Image Optimization
+
+### next/image and Responsive Images
+
+`next/image` handles responsive sizing, lazy loading, and modern formats. For non-Next.js apps, use `srcset` and `sizes` to serve appropriately sized images. Avoid serving 3000px images for 300px thumbnails.
+
+### Modern Formats: AVIF and WebP
+
+Serve AVIF or WebP with JPEG/PNG fallback. Use `<picture>` or accept the `image/avif` format in Accept headers. AVIF often yields 20–50% smaller files than WebP.
+
+### Blur Placeholders
+
+Low-quality placeholders (LQIP) or blur hashes reduce layout shift and improve perceived performance. Generate a tiny base64 or blurred preview; show it until the full image loads.
+
+## Bundle Analysis and Tree Shaking
+
+### webpack-bundle-analyzer and source-map-explorer
+
+Visualize what's in your bundle. Identify large dependencies and accidental includes. `source-map-explorer` gives a treemap from source maps. Run these in CI to catch bundle regressions.
+
+### Tree Shaking Best Practices
+
+Use ES modules (`import`/`export`); CommonJS is harder to tree-shake. Import specific functions: `import { debounce } from 'lodash-es'` not `import _ from 'lodash'`. Some libraries have a `/es` or `/lib` entry point—use them.
+
+### Why Did You Render
+
+`@welldone-software/why-did-you-render` logs unnecessary re-renders. Wrap your app and identify components that re-render when their props haven't changed. Often reveals missing `React.memo`, unstable callbacks, or context over-subscription.
+
+## Debouncing and Throttling
+
+### When to Debounce
+
+Debounce user input that triggers expensive work: search as-you-type, resize handlers, auto-save. Wait for a pause in input before firing.
+
+```tsx
+function useDebounce(value, delay) {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(id);
+  }, [value, delay]);
+  return debouncedValue;
+}
+```
+
+### When to Throttle
+
+Throttle continuous events: scroll, mousemove, resize. Execute at most once per N ms. Use for logging, analytics, or scroll-based animations.
+
+## requestIdleCallback and Non-Critical Work
+
+### Defer Non-Critical Work
+
+Use `requestIdleCallback` (or a polyfill/shim) to run work when the browser is idle. Good for: analytics, non-critical logging, prefetching, or deferred component hydration.
+
+```js
+if ('requestIdleCallback' in window) {
+  requestIdleCallback(() => {
+    // Load non-critical feature
+    import('./analytics').then(m => m.init());
+  }, { timeout: 2000 });
+}
+```
+
+### Long Tasks and Main Thread
+
+Chrome's Long Tasks API identifies work that blocks the main thread for >50ms. Break up heavy computations with `yield`-style patterns: process in chunks, yielding to the event loop between chunks.
+
+## Memory Leaks: Causes and Detection
+
+### Common Causes
+
+- **Event listeners** not removed on unmount
+- **Closures** holding references to large objects or DOM nodes
+- **Timers** (`setInterval`, `setTimeout`) not cleared
+- **Detached DOM** nodes still referenced in JS
+
+### Detection
+
+Chrome DevTools Memory panel: take heap snapshots, compare before/after navigation. Look for growing `Detached HTMLElement` counts. Use `getEventListeners(element)` in the console to find orphaned listeners. Test with repeated mount/unmount (e.g., navigating in/out of a route).
+
+### Prevention
+
+- Clean up in `useEffect` cleanup: remove listeners, clear intervals, abort fetches
+- Avoid storing DOM nodes in module-level or long-lived state
+- Use WeakMap/WeakRef when caching object references if appropriate
+
+## Real User Monitoring and Performance Budgets
+
+### RUM Metrics
+
+Collect Core Web Vitals (LCP, FID/INP, CLS) and custom metrics from real users. Tools: Vercel Analytics, Web Vitals library + your analytics, commercial RUM (Datadog, New Relic). Real data beats synthetic tests—lab conditions often miss slow networks and low-end devices.
+
+### Performance Budgets
+
+Set budgets for bundle size, LCP, and other metrics. Fail CI when budgets are exceeded. Example: "Main JS chunk < 200KB gzipped." Use bundlesize, Lighthouse CI, or custom scripts. Budgets prevent gradual regression and force trade-off discussions.
+
+---
+
+Performance optimization is iterative. Measure first, optimize bottlenecks, then measure again. Start with low-hanging fruit: code splitting, image optimization, and eliminating re-renders. Scale to RUM and budgets as your app and team grow.

@@ -1,0 +1,181 @@
+---
+title: "Monorepo Architecture"
+description: "When to use monorepos, tooling comparison, workspace structure, build orchestration, and scaling challenges."
+date: "2026-02-20"
+author: "Frontend Digest"
+audience: ["senior", "architect", "founder"]
+tags: ["monorepo", "nx", "turborepo", "tooling"]
+order: 11
+featured: false
+---
+
+Monorepos—multiple projects in a single repository—have gone from niche to mainstream. Tools like Nx and Turborepo have made them practical. But monorepos are not always the right choice. This guide covers when they make sense, how to structure and tool them, and the scaling challenges you'll face.
+
+## Monorepo vs Polyrepo: Honest Trade-offs
+
+### Monorepo: Single Repo, Multiple Packages
+
+All code lives in one repository. Shared packages are referenced via workspace protocol (`"@acme/ui": "workspace:*"`). One CI pipeline, one place for issues and PRs, atomic cross-package changes.
+
+### Polyrepo: One Repo per Package/App
+
+Each package or app has its own repo. Dependencies are published to a registry (npm) and versioned. Independent release cycles, clearer ownership, but cross-repo changes require multiple PRs and coordinated releases.
+
+### The Real Trade-offs
+
+**Monorepo advantages:** Atomic refactors across packages, shared tooling and config, simpler dependency management for internal packages, easier to discover and reuse code.
+
+**Monorepo disadvantages:** Larger repo (slower clones, git operations), higher risk of accidental coupling, need for discipline and tooling to scale, CI can become complex.
+
+**Polyrepo advantages:** Clear boundaries, independent versioning and deploys, smaller repos, teams can own repos fully.
+
+**Polyrepo disadvantages:** Cross-repo changes are painful, version skew between packages, duplicate config and tooling.
+
+Choose based on team structure, release coupling, and how much you share. If you ship one product with many packages that change together, monorepo often wins. If you have independent products or teams that rarely coordinate, polyrepo may be simpler.
+
+## When a Monorepo Makes Sense
+
+### Shared Component Libraries
+
+When multiple apps consume the same UI components, a monorepo lets you develop and version them together. Change a button in `@acme/ui`, run affected app tests, merge. No publish step for local development.
+
+### Multiple Apps with Coordinated Releases
+
+Web app, admin dashboard, and mobile companion that ship together. Atomic changes across apps—e.g., API contract change in shared types and both consumers updated in one PR.
+
+### Cross-Functional Packages
+
+Shared config (ESLint, TypeScript, Jest), design tokens, utilities, types. One place to update; all consumers get it via workspace dependency.
+
+### When It Doesn't Make Sense
+
+Single app, small team, little shared code. A monorepo adds tooling and process overhead. Start simple; add structure only when you feel the pain of polyrepo (version coordination, duplicate config).
+
+## Tooling Landscape: Nx vs Turborepo vs Lerna
+
+### Nx
+
+Full-featured build system and monorepo toolkit. Task orchestration, dependency graph, caching, affected commands. Rich plugins for React, Next.js, etc. More opinionated, steeper learning curve, powerful. Best when you want structure, code generators, and enforce consistency. Cloud offering for distributed caching.
+
+### Turborepo
+
+Lightweight, focused on speed. Task pipelines, caching (local and optional remote), parallelization. Minimal config. Less opinionated than Nx. Great default for teams that want "fast monorepo" without heavy machinery. Now part of Vercel ecosystem.
+
+### Lerna
+
+Older tool, originally for publishing multi-package repos. Less active now. Many have migrated to Nx or Turborepo for task orchestration. Lerna still handles versioning and publish; can be used alongside Turborepo for publish-only needs.
+
+**Practical comparison:** Need speed and simplicity? Turborepo. Need generators, constraints, and guardrails? Nx. Need only publish orchestration? Lerna (or consider changesets).
+
+## Workspace Structure: apps/ and packages/
+
+### Common Pattern
+
+```
+packages/
+  ui/           # React component library
+  utils/        # Shared utilities
+  config-eslint/
+  config-typescript/
+  types/        # Shared TypeScript types
+apps/
+  web/          # Main web app
+  admin/        # Admin dashboard
+  docs/         # Storybook or docs site
+```
+
+Separate `apps` (deployable) from `packages` (libraries). Keep packages focused: one concern per package. Avoid deep dependency chains (e.g., `ui` → `utils` is fine; `ui` → `utils` → `config` → `types` can get brittle).
+
+### Package Naming
+
+Use a scope: `@acme/ui`, `@acme/utils`. Clarifies internal vs external. Private packages stay in workspace; public ones publish under the scope.
+
+## Shared Packages: UI, Utilities, Config, Types
+
+### UI Library
+
+Components, hooks, theme. Export from `@acme/ui`. Consumed by apps and optionally other packages. Use a component showcase (Storybook) in the repo. Version for external consumers; workspace ref for internal.
+
+### Utilities
+
+Pure functions, helpers. Minimal dependencies. Used by UI and apps. Keep small and tree-shakeable.
+
+### Config Packages
+
+`@acme/eslint-config`, `@acme/tsconfig`. Extend in apps via `extends`. Single source of truth for lint and TS rules.
+
+### Types Package
+
+Shared TypeScript types, API contracts. Often consumed by many packages. Avoid circular dependencies: types should not depend on runtime packages.
+
+## Build Orchestration: Pipelines, Caching, Affected Builds
+
+### Task Pipelines
+
+Define dependencies between tasks. Example: `build` depends on `build` of dependencies. Turborepo and Nx infer this from package dependency graph. Configure in `turbo.json` or `nx.json`:
+
+```json
+// turbo.json
+{
+  "pipeline": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"]
+    }
+  }
+}
+```
+
+### Caching
+
+Hash inputs (source files, config); if unchanged, skip task and restore output from cache. Local cache by default. Remote cache (Vercel, Nx Cloud) speeds up CI and teammate machines.
+
+### Affected Builds
+
+Only build/test what changed. `git diff main` → affected packages → run their tasks. Cuts CI from 20 minutes to 2 when one app changed. `nx affected` and `turbo run build --filter=...[main]` implement this.
+
+## Dependency Management: Hoisting, Phantom Dependencies, Version Policies
+
+### Hoisting
+
+Package managers (npm, pnpm, Yarn) hoist dependencies to the root `node_modules`. Reduces duplication. Can cause "phantom dependencies": you import a package you didn't declare because a dependency hoisted it. It can break when that dependency changes. Declare all direct dependencies explicitly. pnpm's strict mode catches some of this.
+
+### Phantom Dependencies
+
+Using a package not in your `package.json` but available via a hoisted dependency. Dangerous: version can change unexpectedly. Fix: add to `package.json` or use a linter (e.g., `dependency-cruiser`) to flag these.
+
+### Version Policies
+
+Keep versions aligned. Use `pnpm.overrides` or `resolutions` to force a single version of a transitive dependency (e.g., React). Define version policy: e.g., "all packages use React 18." Tools like syncpack help keep versions in sync across workspace packages.
+
+## CI/CD for Monorepos: Only What Changed, Parallelization
+
+### Affected Commands
+
+Run tests and builds only for affected packages. Most CI configs: `git fetch origin main`, then `turbo run build test --filter=...[origin/main]`. Merge to main triggers full build; PRs trigger affected only.
+
+### Parallelization
+
+Turborepo and Nx parallelize independent tasks. Multiple apps can build simultaneously. Configure concurrency based on CI runner capacity.
+
+### Caching in CI
+
+Cache `node_modules` and Turborepo/Nx cache. Restore cache before install and before running tasks. Remote cache (e.g., Vercel Turborepo cache) can make CI nearly instant when nothing changed.
+
+## Scaling Challenges: IDE, Git, Onboarding
+
+### IDE Performance
+
+Large repos can slow IDEs. TypeScript checking many packages, ESLint across the workspace. Solutions: use project references (TypeScript), scope IDE to `apps/web` during daily work, use Nx/Turborepo affected for lint. Consider splitting into smaller workspace roots if it becomes unbearable (advanced).
+
+### Git Performance
+
+Clone and fetch get slower with repo size. Use shallow clone in CI (`--depth=1`). Consider Git LFS for large binaries. Monorepo tools that use `git diff` need a reasonable base branch—avoid comparing against huge histories.
+
+### Onboarding Complexity
+
+New engineers face a large codebase. Mitigate: clear README, architecture docs, `apps/` and `packages/` layout, consistent naming. Use codeowners for clarity. Document how to run one app vs the whole repo. Generators (Nx) can scaffold new packages and enforce structure.
+
+---
+
+Monorepos are a powerful organizational pattern. Start with a clear structure, invest in tooling (Turborepo or Nx), and establish conventions for packages and dependencies. Revisit the decision as the team and product scale—what works at 5 people may need adjustment at 50.

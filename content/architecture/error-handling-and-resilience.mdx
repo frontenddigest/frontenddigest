@@ -1,0 +1,182 @@
+---
+title: "Error Handling and Resilience"
+description: "Build frontends that fail gracefully: error boundaries, global handlers, retry patterns, circuit breakers, optimistic updates, and postmortem culture."
+date: "2026-02-20"
+author: "Frontend Digest"
+audience: ["senior", "architect"]
+tags: ["error-handling", "resilience", "error-boundaries"]
+order: 16
+featured: false
+---
+
+Errors are inevitable. Networks fail, APIs return 5xx, third-party scripts break, and users hit edge cases you never imagined. The difference between a resilient frontend and a fragile one is how gracefully you handle failure. This guide covers error boundaries, retry patterns, graceful degradation, and the culture that turns incidents into learning.
+
+## Error Boundaries in React
+
+### Component-Level Crash Isolation
+
+An error boundary is a React component that catches JavaScript errors in its child tree. Without it, a single component error can unmount the entire app. With it, you contain the failure and render a fallback UI.
+
+```tsx
+class ErrorBoundary extends React.Component {
+  state = { hasError: false };
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    logErrorToService(error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return <FallbackUI onRetry={() => this.setState({ hasError: false })} />;
+    }
+    return this.props.children;
+  }
+}
+```
+
+### Placement Strategy
+
+Wrap route-level or feature-level chunks. A crash in the Settings page shouldn't take down the Dashboard. Use multiple boundaries: one per major section, and a top-level boundary as a last resort. The top-level boundary can offer "Reload" or "Go home" when everything else fails.
+
+### What Error Boundaries Don't Catch
+
+Error boundaries catch rendering errors and lifecycle methods. They do **not** catch: event handler errors, async code (e.g., `setTimeout`, `fetch` callbacks), server-side rendering, or errors in the boundary itself. Handle those with `try/catch` and global handlers.
+
+## Global Error Handling
+
+### window.onerror and unhandledrejection
+
+Capture uncaught errors and unhandled promise rejections globally:
+
+```javascript
+window.onerror = (message, source, lineno, colno, error) => {
+  reportError({ message, source, lineno, colno, stack: error?.stack });
+  return true; // Prevents default browser handling if desired
+};
+
+window.onunhandledrejection = (event) => {
+  reportError({ reason: event.reason, promise: event.promise });
+  event.preventDefault(); // Prevents default console error
+};
+```
+
+Send these to your error tracking service. Attach user context, breadcrumbs, and release version. Global handlers are your last line of defense—don't let errors disappear into the void.
+
+## Network Resilience
+
+### Retry with Exponential Backoff
+
+Transient failures (network blips, 503) often succeed on retry. Implement exponential backoff: wait 1s, then 2s, then 4s, etc. Cap the delay and max retries. For non-idempotent operations (e.g., POST that creates a resource), be careful—retry only when safe or use idempotency keys.
+
+```javascript
+async function fetchWithRetry(url, options = {}, maxRetries = 3) {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      const res = await fetch(url, options);
+      if (res.ok || res.status < 500) return res;
+      throw new Error(`HTTP ${res.status}`);
+    } catch (err) {
+      if (i === maxRetries - 1) throw err;
+      await sleep(2 ** i * 1000);
+    }
+  }
+}
+```
+
+### Circuit Breaker Pattern
+
+When a dependency is failing repeatedly, stop calling it. The circuit breaker has states: closed (normal), open (failing—don't call), half-open (test with one request). After a threshold of failures, open the circuit; after a timeout, try half-open. Prevents cascading failure and gives the dependency time to recover.
+
+## Graceful Degradation
+
+### Showing Partial Content When APIs Fail
+
+When a non-critical API fails (e.g., recommendations, related products), don't show a full-page error. Render the rest of the page and show a placeholder or "Unable to load" for the failed section. Users get a degraded but usable experience.
+
+### Fallbacks and Skeletons
+
+For async content, show skeletons or placeholders while loading. On error, show a retry button or cached/stale content if available. Design each section to fail independently.
+
+### Feature Flags as Kill Switches
+
+Feature flags aren't just for rollout—they're resilience levers. If a new feature causes errors, turn it off without deploying. Ensure flags are evaluated client-side quickly and that "off" truly disables the code path. Combine with observability: know which flags are on and what errors correlate.
+
+## Optimistic Updates with Rollback on Failure
+
+### The Pattern
+
+Update the UI immediately (optimistic), then send the request. If it succeeds, you're done. If it fails, revert the UI and show an error. Users perceive instant feedback; you handle failure explicitly.
+
+```javascript
+async function addToCart(item) {
+  const previousCart = getCart();
+  setCart([...previousCart, item]); // Optimistic
+
+  try {
+    await api.addToCart(item);
+  } catch (err) {
+    setCart(previousCart); // Rollback
+    toast.error('Failed to add item');
+  }
+}
+```
+
+### When to Use
+
+Use for actions where the outcome is highly likely to succeed (e.g., adding to cart, toggling favorites). Avoid for critical or irreversible actions (payments, account deletion) unless you have strong confirmation and rollback flows.
+
+## Loading and Error State Management
+
+### Explicit States
+
+Every async operation has states: idle, loading, success, error. Model them explicitly. Don't conflate "no data" with "error" or "loading." Use discriminated unions or state machines for clarity.
+
+```typescript
+type AsyncState<T> =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'success'; data: T }
+  | { status: 'error'; error: Error };
+```
+
+### Consistent UI Patterns
+
+Use consistent patterns for loading (spinner, skeleton) and error (message + retry). Consider a shared `AsyncBoundary` or `Suspense` + error boundary so individual components don't repeat the same boilerplate.
+
+## Client-Side Validation
+
+### Preventing Errors Before They Happen
+
+Validate input before submission. Catch typos, invalid formats, and missing required fields. Use schema validation (Zod, Yup) for forms. Show inline errors as the user types or on blur. Don't rely solely on server validation—client-side validation improves UX and reduces unnecessary round trips.
+
+### Defensive Coding
+
+Validate API responses. Don't assume the backend returns the shape you expect. Use runtime validation or typed parsers. Handle null/undefined and malformed data. Fail gracefully instead of throwing when data is unexpected.
+
+## User-Facing Error Messages
+
+### Balancing Technical Detail with Clarity
+
+Users don't need stack traces. They need to know what happened and what to do next. "Something went wrong" is unhelpful; "We couldn't save your changes. Please try again." is better. For support, log the technical details; for the UI, show a friendly message and a clear action (retry, contact support, go back).
+
+### Actionable Messages
+
+Every error state should offer an action: Retry, Go back, Contact support, or Dismiss. Avoid dead ends where the user has no path forward.
+
+## Postmortem Culture
+
+### Learning From Frontend Incidents
+
+When a frontend incident occurs, write a postmortem. What happened? What was the impact? Root cause? What could have prevented it? What will we do differently? Keep blame out of it—focus on systems and process.
+
+### Continuous Improvement
+
+Use postmortems to improve: add error boundaries where gaps existed, implement retries for newly discovered failure modes, add monitoring for the type of issue you saw. Resilience improves through iteration. Make postmortems a lightweight, blameless ritual.
+
+---
+
+Resilient frontends handle errors at multiple layers: React boundaries for UI crashes, global handlers for uncaught errors, retries and circuit breakers for network issues, and graceful degradation for partial failures. Combine that with optimistic updates, clear error states, and a postmortem culture—and your users will have a robust experience even when things go wrong.

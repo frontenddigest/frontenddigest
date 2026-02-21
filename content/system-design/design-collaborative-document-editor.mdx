@@ -1,0 +1,137 @@
+---
+title: "Design a Collaborative Document Editor"
+description: "System design for a collaborative editor like Google Docs: real-time sync (CRDTs vs OT), cursor presence, rich text (contentEditable vs ProseMirror/Tiptap), conflict resolution, offline, version history, comments, and permissions."
+date: "2026-02-20"
+author: "Frontend Digest"
+audience: ["senior", "architect"]
+tags: ["system-design", "interview", "collaboration", "editor"]
+order: 10
+featured: true
+---
+
+Designing a collaborative document editor tests real-time sync, rich text editing, conflict resolution, and complex state. Here's a structured approach.
+
+## Requirements Clarification
+
+### Functional Requirements
+
+- **Editing:** Rich text (bold, italic, lists, headings); possibly images, tables.
+- **Collaboration:** Multiple cursors; see others' edits in real time; no overwrites.
+- **Comments:** Inline comments and suggestions; resolve, reply.
+- **History:** Version history; restore previous version.
+- **Offline:** Edit offline; sync when back online.
+- **Permissions:** View-only, comment-only, edit; per-user or per-document.
+
+### Non-Functional Requirements
+
+- Low latency for collaboration (&lt;100ms typical).
+- Conflict-free merging; eventual consistency.
+- Accessibility: keyboard navigation, screen reader support for structure.
+- Scale to documents with 100k+ characters and 10+ concurrent users.
+
+## High-Level Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                     DocumentEditorRoot                                │
+├─────────────────────────────────────────────────────────────────────┤
+│  EditorCore (ProseMirror / Tiptap / Slate)                            │
+│  - Document model (OT/CRDT)                                           │
+│  - Local edits → transform → broadcast                                 │
+├─────────────────────────────────────────────────────────────────────┤
+│  CollaborationLayer                                                  │
+│  - WebSocket: receive remote ops, merge, apply                         │
+│  - Presence: cursors, selection (Yjs awareness or custom)             │
+├─────────────────────────────────────────────────────────────────────┤
+│  CommentsLayer, VersionHistory, PermissionGate                        │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+Edits flow: user input → editor emits operation → transform/merge → broadcast via WebSocket. Incoming operations from server → merge into local state → update editor.
+
+## Component Design
+
+### Editor Core
+
+**Option A—ProseMirror/Tiptap:** Schema-based document model (nodes, marks). Built-in transforms; extensible. Use with `y-prosemirror` (Yjs) or custom OT for collaboration.
+
+**Option B—contentEditable + custom:** Simpler start but harder to control; getSelection, ranges, and DOM mutations are brittle. Not recommended for production collaboration.
+
+**Option C—Slate:** React-first; immutable document model. Can integrate CRDT (e.g., Automerge).
+
+```typescript
+// ProseMirror doc structure (simplified)
+interface DocNode {
+  type: 'doc' | 'paragraph' | 'text' | 'heading' | ...;
+  content?: DocNode[];
+  marks?: Mark[];
+  attrs?: Record<string, unknown>;
+}
+```
+
+### Collaboration: CRDT vs. OT
+
+**CRDT (Conflict-free Replicated Data Types):** Yjs, Automerge. No central server for merge; each client merges independently. Good for offline-first and P2P. Yjs is popular; has ProseMirror binding (`y-prosemirror`).
+
+**OT (Operational Transform):** Google Docs model. Server applies and transforms ops; clients get transformed ops. Requires server; better for strict consistency. More complex to implement.
+
+**Recommendation:** Yjs for most cases—simpler client, works offline, good ecosystem.
+
+### Presence (Cursors and Selection)
+
+Store `{ userId, position, selection }` per user. Update on selection change; throttle to ~100ms. Render caret/widget for each remote user. Yjs has `Awareness` for this; or use a separate presence channel (WebSocket room).
+
+## State Management
+
+| State | Location | Notes |
+|-------|----------|-------|
+| `document` | Editor state (ProseMirror/Slate) | Source of truth; CRDT/OT replica |
+| `presence` | Map `userId → { cursor, selection, color }` | Real-time; ephemeral |
+| `comments` | Array or map | Keyed by anchor (e.g., `{ from, to }` or node ID) |
+| `permissions` | From API | `viewer | commenter | editor` |
+| `history` | Fetched from API | Versions; not in-memory doc |
+
+Document state lives in the editor; collaboration layer (Yjs doc) syncs. Comments are a separate layer, anchored to document positions; positions must be updated on document change (ProseMirror has a plugin for this).
+
+## API Design
+
+### REST Endpoints
+
+- `GET /documents/:id` — Load document; returns initial content (for Yjs: init state or snapshot)
+- `POST /documents/:id/comment` — Add comment; body `{ anchor, content }`
+- `PATCH /comments/:id` — Resolve, edit
+- `GET /documents/:id/versions` — List versions
+- `POST /documents/:id/restore` — Restore from version
+- `GET /documents/:id/permissions` — Who has what access
+
+### WebSocket
+
+- **Connect:** `ws://api/documents/:id/collab`
+- **Messages:** Send local ops (Yjs updates or OT ops); receive remote ops. Binary for Yjs (`Y.encodeStateAsUpdate`).
+- **Presence:** Separate channel or piggyback: `{ type: 'presence', userId, cursor, selection }`.
+
+### Comments Anchoring
+
+Comments reference document positions. With ProseMirror, use `pos` or stored marks. On load, resolve comment anchors; when doc changes, update positions (or use stable IDs if your schema supports it). Tiptap has a comments extension; consider existing solutions.
+
+## Performance Considerations
+
+- **Throttle presence:** Send cursor updates max every 100–200ms.
+- **Delta sync:** Yjs sends only deltas; OT sends ops. Avoid sending full doc.
+- **Debounce persist:** Save document snapshot every 30s or N ops to backend.
+- **Large docs:** For 100k+ chars, consider block-level CRDT (e.g., per-paragraph) to reduce merge cost.
+- **Lazy load history:** Fetch version list on demand; load version content when user selects.
+
+## Accessibility
+
+- **Keyboard:** Full navigation and editing via keyboard; arrow keys, Mod+B for bold, etc.
+- **Structure:** Headings, lists, paragraphs exposed to screen readers (proper HTML/semantics).
+- **Comments:** Comment indicators focusable; open panel with `aria-expanded`; announce "Comment by X" when entering.
+- **Presence:** Don't announce every cursor move; optional "X users editing" for context.
+- **Focus:** When restoring version, focus editor and announce change.
+
+## Trade-offs and Extensions
+
+**Trade-offs:** CRDT vs. OT—CRDT simpler client-side, good for offline; OT gives server more control. ProseMirror vs. Slate—ProseMirror mature and schema-rich; Slate React-native. contentEditable—avoid for serious collab.
+
+**Extensions:** Suggestions mode (track changes), @mentions, slash commands, templates, export (PDF, DOCX), AI assist, document linking, real-time presence with avatars.

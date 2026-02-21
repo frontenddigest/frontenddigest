@@ -1,0 +1,114 @@
+---
+title: "Technical Roadmapping"
+description: "Building and communicating technical roadmaps: balancing features, tech debt, and innovation, with frameworks for quarterly planning."
+date: "2026-02-20"
+author: "Frontend Digest"
+audience: ["architect", "founder"]
+tags: ["roadmap", "strategy", "planning"]
+order: 4
+featured: false
+---
+
+A technical roadmap aligns engineering effort with business goals while managing technical health. Unlike a product roadmap focused on user-facing features, a technical roadmap addresses infrastructure, platform, debt paydown, and capability-building. This guide covers how to build one, balance competing demands, and communicate it effectively.
+
+## Building a Technical Roadmap vs Product Roadmap
+
+### Product Roadmap: User Value
+
+The product roadmap answers "What are we shipping for users?" It's organized by features, releases, and outcomes. Product managers typically own it. It's customer-facing and drives revenue, retention, and growth.
+
+### Technical Roadmap: Capability and Health
+
+The technical roadmap answers "What must we build or fix to support the product?" It includes migrations, infrastructure upgrades, platform investments, tech debt paydown, and security initiatives. Engineers and architects own it. It's often invisible to users but enables or constrains the product roadmap.
+
+### Integration and Tension
+
+Technical work enables product work—you can't ship a real-time feature on a polling-based architecture forever. But technical work competes for the same engineers. The roadmap must balance both. Integrate technical initiatives into planning so they're not an afterthought.
+
+## Balancing Feature Work, Tech Debt, and Innovation
+
+### The Three Horizons
+
+- **Horizon 1 (Now)**: Feature delivery, bug fixes, operational stability. This keeps the business running.
+- **Horizon 2 (Next)**: Tech debt paydown, migrations, platform improvements. This prevents future collapse.
+- **Horizon 3 (Later)**: Experimentation, R&D, new capabilities. This creates optionality.
+
+Ignore Horizon 2 and you accumulate debt until delivery slows. Ignore Horizon 3 and you have no future differentiation. A healthy roadmap allocates across all three—commonly 70% / 20% / 10% or similar, adjusted by context.
+
+### Saying No to Protect the Roadmap
+
+Not everything fits. Saying yes to every request fragments the team and guarantees nothing ships well. Use the roadmap as a filter: "That's valuable, but it's not on our priorities this quarter. Here's when we might revisit it."
+
+## Quarterly Planning Frameworks
+
+### OKRs for Technical Teams
+
+Objectives and Key Results can structure technical outcomes. Example: Objective = "Improve frontend performance." Key Results = "Reduce LCP to under 2.5s on core pages; Reduce JavaScript bundle size by 15%." OKRs force clarity on measurable outcomes. Don't over-OKR—focus on a few that matter.
+
+### Theme-Based Planning
+
+Organize the quarter around themes (e.g., "Reliability," "Developer Experience," "Scale"). Initiatives map to themes. This creates coherence and makes it easier to explain the roadmap: "This quarter we're focused on reliability."
+
+### Capacity Allocation
+
+Reserve capacity for each category: features (60%), tech debt (25%), innovation (10%), unplanned (5%). Adjust based on urgency. Track actual allocation—teams often over-allocate to features and under-deliver on debt.
+
+## Communicating the Roadmap to Stakeholders
+
+### Tailor the Message
+
+Executives want outcomes and timing. Product wants to know what's enabled when. Engineers want clarity on priorities and rationale. One slide deck rarely works for all. Create versions: exec summary, product-facing, team-facing.
+
+### Link Technical Work to Business Impact
+
+"Migrate to Vite" is technical. "Reduce build time by 60%, enabling faster iteration and lower CI costs" is business-impact. Translate. Stakeholders need to understand why technical work matters, not just what it is.
+
+### Be Honest About Trade-offs
+
+If you're spending a quarter on a migration, say so. Explain what you're not doing and why the migration is worth it. Transparency builds trust. Surprising stakeholders with "we didn't ship X because we were doing Y" destroys it.
+
+## Handling Shifting Priorities and Scope Changes
+
+### Change as the Default
+
+Priorities shift. Emergencies happen. A rigid roadmap that can't adapt is useless. Build in flexibility: identify what's fixed vs. negotiable. Reserve buffer for the unknown.
+
+### Re-prioritization Rituals
+
+When priorities change, have a clear process: who decides, how do we communicate, what gets dropped or deferred? Ad hoc reprioritization without process creates chaos. Mid-quarter reviews can adjust scope; document decisions.
+
+### Protecting Critical Work
+
+Some work shouldn't be cut: security, compliance, existential tech debt. Define "non-negotiable" and defend it. When everything is critical, nothing is—be selective.
+
+## Measuring Progress and Outcomes
+
+### Leading vs Lagging Indicators
+
+Leading indicators: velocity, deployment frequency, build times. Lagging indicators: incidents, user satisfaction, business metrics. Track both. Leading indicators predict future health; lagging indicators confirm impact.
+
+### Outcome over Output
+
+Output = "We migrated 50 components." Outcome = "Build time dropped 40%, enabling daily releases." Measure outcomes. If you can't tie technical work to outcomes, revisit whether the work is worth doing.
+
+### Retrospectives on the Roadmap
+
+At quarter end, review what shipped, what didn't, and why. Use this to improve planning. Were estimates off? Did scope creep? Did priorities change? Continuous improvement applies to roadmapping too.
+
+## When to Pivot vs Persevere on Technical Bets
+
+### Signs to Pivot
+
+The technology isn't delivering promised benefits. The ecosystem has shifted (e.g., a better alternative emerged). The cost of continuing exceeds the cost of switching. The team has lost confidence. Pivoting is not failure—sunk cost fallacy is.
+
+### Signs to Persevere
+
+You're early in the investment; benefits take time. The alternative isn't clearly better. The team has momentum. External factors (e.g., vendor issues) are temporary. Distinguish "this is hard" from "this is wrong."
+
+### Making the Call
+
+Use data: timelines, costs, risks. Involve the team—they have the best view of feasibility. Document the decision and rationale. Revisit periodically. Technical bets are bets—sometimes you win, sometimes you cut losses.
+
+---
+
+A technical roadmap is a living document. It balances delivery, health, and innovation. Build it with frameworks, communicate it clearly, and stay adaptable. Measure outcomes, not just output. When priorities shift, re-prioritize with process. The roadmap is a tool for alignment—use it to focus the team and set expectations, not to create bureaucracy.

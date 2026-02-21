@@ -1,0 +1,108 @@
+---
+title: "Frontend Security"
+description: "Essential frontend security: XSS, CSRF, CSP, authentication patterns, secure storage, and supply chain security."
+date: "2026-02-20"
+author: "Frontend Digest"
+audience: ["senior", "architect"]
+tags: ["security", "xss", "csrf", "authentication"]
+order: 6
+featured: false
+---
+
+Frontend security is often overlooked until a breach occurs. Users trust your application with sensitive data; attackers target the browser as the first line of defense. This guide covers the major threats, prevention strategies, and patterns that keep your frontend and users safe.
+
+## XSS (Cross-Site Scripting) — Types and Prevention
+
+### Reflected, Stored, and DOM-Based XSS
+
+Reflected XSS injects malicious script via URL parameters or form input that the server echoes back without encoding. Stored XSS persists malicious content in a database and renders it to all users who view it. DOM-based XSS occurs entirely in the client—unsafe handling of `document.location` or `innerHTML` with user-controlled data. All three allow attackers to steal cookies, session tokens, or perform actions as the user.
+
+### Output Encoding and Sanitization
+
+Never render user input as raw HTML. Use text content (React's default, `textContent` in vanilla JS) or framework-safe interpolation. When you must render HTML (e.g., rich text), use a sanitization library like DOMPurify with a strict allowlist. Encode for the correct context: HTML attributes, JavaScript strings, and URLs each have different encoding rules.
+
+### Content Security Policy as Defense in Depth
+
+CSP headers restrict where scripts can load from and block inline script execution. Even if an XSS vulnerability exists, CSP can prevent the payload from running. Use `Content-Security-Policy` with `script-src 'self'` and avoid `unsafe-inline` when possible. Report violations to monitor attempted attacks.
+
+## CSRF (Cross-Site Request Forgery) Protection
+
+### How CSRF Works
+
+An attacker lures a logged-in user to a malicious site. That site submits a form or fetches a URL to your application. Because the browser sends cookies automatically, the request is authenticated—and the attacker triggers actions (e.g., transfer funds, change email) without the user's intent.
+
+### SameSite Cookies and Tokens
+
+Set `SameSite=Strict` or `SameSite=Lax` on cookies. `Strict` blocks cookies on cross-site requests; `Lax` allows top-level navigations (e.g., links) but not cross-site form POSTs. For APIs, use anti-CSRF tokens: the server issues a token in a cookie or response, and the client sends it in a header or body. The attacker cannot read the token due to same-origin policy.
+
+### Double Submit and Custom Headers
+
+If you use cookies for auth, require a custom header (e.g., `X-Requested-With`) that only same-origin JavaScript can set. Or use the `Origin`/`Referer` header—the server rejects requests with unexpected origins. These are layers; SameSite cookies are the baseline.
+
+## Content Security Policy (CSP)
+
+### Configuring CSP
+
+CSP controls script sources, styles, images, and other resources. `default-src 'self'` is the baseline; relax only what's needed. For script: `script-src 'self'` and add trusted CDNs if necessary. Use `nonce` or `hash` for inline scripts instead of `'unsafe-inline'`. Start in report-only mode to discover what breaks, then enforce.
+
+### Reporting and Monitoring
+
+Use `report-uri` or `report-to` to receive violation reports. Analyze them for real attacks vs. third-party scripts or legacy code. Tighten CSP over time; perfect CSP on day one is rare.
+
+## Authentication Patterns (JWT, Sessions, OAuth)
+
+### JWT: Stateless but Limited
+
+JWTs encode claims and are verified with a secret or public key. They're stateless—no server-side session store. But they're hard to invalidate before expiry, and storing them in localStorage exposes them to XSS. Prefer httpOnly cookies for storage; keep JWTs short-lived and use refresh tokens in httpOnly cookies.
+
+### Server Sessions
+
+Sessions store auth state on the server; the client holds a session ID in a cookie. Revocation is immediate (delete the session). Scales with sticky sessions or a shared store (Redis). More server state, but simpler security model for many apps.
+
+### OAuth and OIDC
+
+For third-party login (Google, GitHub), use OAuth 2.0 / OpenID Connect. Never handle raw passwords for third-party providers. Use the authorization code flow with PKCE for SPAs—no client secrets in the browser. Validate ID tokens and use established libraries.
+
+## Secure Storage (Cookies vs localStorage)
+
+### When to Use Cookies
+
+Use httpOnly, Secure, SameSite cookies for tokens and session IDs. The browser prevents JavaScript access, mitigating XSS token theft. Set `Secure` for HTTPS-only transmission. SameSite prevents CSRF when combined with other measures.
+
+### Avoid localStorage for Secrets
+
+localStorage is accessible to any JavaScript on the origin. XSS means token theft. Use localStorage only for non-sensitive data (UI preferences, non-auth state). Never store tokens, API keys, or PII there.
+
+### SessionStorage and Ephemeral Data
+
+sessionStorage is scoped to a tab and cleared when it closes. Use for transient, tab-specific state. Still avoid secrets—XSS can read it while the tab is open.
+
+## Dependency Vulnerabilities and Supply Chain Attacks
+
+### Auditing and Updating
+
+Run `npm audit` or `yarn audit` regularly. Fix high and critical issues quickly. Use Dependabot or Renovate for automated PRs. Update dependencies in batches; test thoroughly. Not every vulnerability is exploitable in your context, but don't ignore them without assessment.
+
+### Supply Chain Risks
+
+Attackers compromise npm packages (typosquatting, account takeover, malicious updates). Use lockfiles and pin exact versions. Prefer well-maintained packages with many users. For sensitive operations, consider vendoring or auditing critical dependencies. Zero-trust: assume dependencies can be malicious.
+
+## HTTPS and Secure Headers
+
+### Enforce HTTPS
+
+Use HTTPS everywhere. Redirect HTTP to HTTPS. Set HSTS (Strict-Transport-Security) so browsers refuse HTTP on subsequent visits. HTTPS prevents eavesdropping and tampering in transit.
+
+### Security Headers Checklist
+
+- **Strict-Transport-Security**: Enforce HTTPS.
+- **X-Content-Type-Options: nosniff**: Prevent MIME sniffing.
+- **X-Frame-Options: DENY** or **SAMEORIGIN**: Mitigate clickjacking.
+- **Referrer-Policy**: Control referrer leakage.
+- **Permissions-Policy**: Restrict browser features (camera, geolocation, etc.).
+
+Configure these at the server or CDN. Use security header scanners to verify.
+
+---
+
+Frontend security is a layered effort. Encode output to prevent XSS, protect cookies with SameSite and httpOnly, use CSP as defense in depth, and keep dependencies updated. Authentication and storage choices have lasting impact—design them carefully. Security is not a one-time task; it's part of the development lifecycle.
