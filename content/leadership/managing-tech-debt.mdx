@@ -15,7 +15,7 @@ Tech debt is inevitable—it's the natural result of shipping under constraints.
 
 ### Ward Cunningham's Original Metaphor
 
-Tech debt is borrowed time. You take a shortcut to ship faster; you pay interest (extra effort) on future changes until you pay down the principal (refactor). Like financial debt, some is strategic and some is reckless. The metaphor helps non-engineers understand trade-offs.
+Ward Cunningham first described the debt metaphor in his 1992 OOPSLA experience report. Tech debt is borrowed time. You take a shortcut to ship faster; you pay interest (extra effort) on future changes until you pay down the principal (refactor). Like financial debt, some is strategic and some is reckless. The metaphor helps non-engineers understand trade-offs. Martin Fowler later expanded on this with his *Technical Debt Quadrant*, distinguishing between deliberate vs. inadvertent and reckless vs. prudent debt.
 
 ### Tech Debt vs. Bad Code
 
@@ -79,7 +79,7 @@ Reserve 20% of capacity for tech debt and maintenance. Each sprint, 80% features
 
 ### Boy Scout Rule
 
-Leave the codebase better than you found it. Every PR includes a small cleanup. No dedicated debt time, but continuous improvement. Works for gradual erosion of debt; doesn't work for large, systemic problems.
+Popularized by Robert C. Martin in *Clean Code*: leave the codebase better than you found it. Every PR includes a small cleanup. No dedicated debt time, but continuous improvement. Works for gradual erosion of debt; doesn't work for large, systemic problems.
 
 ### Just-in-Time Refactoring
 
@@ -89,7 +89,7 @@ Refactor when you touch the code. Adding a feature? Clean up the area first. Pre
 
 ### Strangler Fig Pattern
 
-Wrap or replace legacy code incrementally. New code lives beside old; traffic gradually shifts. Avoid big-bang rewrites. Works for APIs, services, and UI components. Requires clear boundaries.
+Originally described by Martin Fowler (2004), named after strangler figs that grow around a host tree. Wrap or replace legacy code incrementally. New code lives beside old; traffic gradually shifts. Avoid big-bang rewrites. Works for APIs, services, and UI components. Requires clear boundaries.
 
 ### Expand-Contract (Parallel Change)
 

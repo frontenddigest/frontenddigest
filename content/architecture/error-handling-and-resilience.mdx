@@ -89,7 +89,7 @@ async function fetchWithRetry(url, options = {}, maxRetries = 3) {
 
 ### Circuit Breaker Pattern
 
-When a dependency is failing repeatedly, stop calling it. The circuit breaker has states: closed (normal), open (failing—don't call), half-open (test with one request). After a threshold of failures, open the circuit; after a timeout, try half-open. Prevents cascading failure and gives the dependency time to recover.
+Originally described by Michael Nygard in *Release It!* (2007): when a dependency is failing repeatedly, stop calling it. The circuit breaker has states: closed (normal), open (failing—don't call), half-open (test with one request). After a threshold of failures, open the circuit; after a timeout, try half-open. Prevents cascading failure and gives the dependency time to recover.
 
 ## Graceful Degradation
 

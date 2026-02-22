@@ -96,8 +96,9 @@ export function Footer() {
 
       <div className="border-t border-border">
         <div className="mx-auto flex max-w-7xl items-center justify-center px-4 py-4 sm:px-6 lg:px-8">
-          <p className="text-sm text-muted-foreground">
-            © {currentYear} Frontend Digest
+          <p className="text-sm text-muted-foreground text-center">
+            © {currentYear} Frontend Digest · Educational content for the
+            frontend community · <Link href="/about#attribution" className="underline hover:text-foreground">Attribution</Link>
           </p>
         </div>
       </div>

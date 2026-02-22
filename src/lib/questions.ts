@@ -65,7 +65,7 @@ export const questions: Question[] = [
     id: 5,
     question: "Explain prototypal inheritance in JavaScript.",
     answer:
-      "Every JavaScript object has an internal `[[Prototype]]` link to another object. When you access a property, the engine walks up the prototype chain until it finds the property or reaches `null`. Constructor functions set up prototypes via `Constructor.prototype`. `class` syntax is syntactic sugar over this mechanism. `Object.create(proto)` creates objects with a specific prototype. Key difference from classical inheritance: objects inherit directly from other objects, not from classes. The chain is dynamic — changes to a prototype affect all objects linked to it.",
+      "Every JavaScript object has an internal `[[Prototype]]` link to another object. When you access a property, the engine walks up the prototype chain until it finds the property or reaches `null`. Constructor functions set up prototypes via `Constructor.prototype`. `class` syntax is syntactic sugar over this mechanism. `Object.create(proto)` creates objects with a specific prototype. Unlike class-based languages, JavaScript's inheritance model links objects to other objects via the prototype chain rather than through class hierarchies. The chain is dynamic — changes to a prototype affect all objects linked to it.",
     category: "JavaScript",
     difficulty: "hard",
   },
@@ -73,7 +73,7 @@ export const questions: Question[] = [
     id: 6,
     question: "What are Promises? How do `async/await` relate to them?",
     answer:
-      "A Promise represents a value that may be available now, in the future, or never. It has three states: pending, fulfilled, or rejected. You chain `.then()` for success and `.catch()` for errors. `async/await` is syntactic sugar over Promises — an `async` function always returns a Promise, and `await` pauses execution until the Promise settles. This makes asynchronous code read like synchronous code. Error handling uses try/catch instead of `.catch()`. Under the hood, `await` schedules the continuation as a microtask.",
+      "A Promise represents the eventual result of an asynchronous operation — it will either resolve with a value or reject with an error. It has three states: pending, fulfilled, or rejected. You chain `.then()` for success and `.catch()` for errors. `async/await` is syntactic sugar over Promises — an `async` function always returns a Promise, and `await` pauses execution until the Promise settles. This makes asynchronous code read like synchronous code. Error handling uses try/catch instead of `.catch()`. Under the hood, `await` schedules the continuation as a microtask.",
     category: "JavaScript",
     difficulty: "medium",
   },
@@ -81,7 +81,7 @@ export const questions: Question[] = [
     id: 7,
     question: "What is the `this` keyword in JavaScript? How does its value get determined?",
     answer:
-      "`this` depends on how a function is called, not where it's defined. Rules (in priority order): (1) `new` binding — `this` is the newly created object. (2) Explicit binding — `call`, `apply`, `bind` set `this` explicitly. (3) Implicit binding — the object before the dot (`obj.fn()` → `this` is `obj`). (4) Default binding — in strict mode `undefined`, otherwise `globalThis`. Arrow functions don't have their own `this` — they inherit from the enclosing lexical scope, making them ideal for callbacks and event handlers.",
+      "`this` depends on how a function is called, not where it's defined. When called as a method (`obj.fn()`), `this` is the object before the dot. When called as a standalone function, `this` is `undefined` in strict mode or `globalThis` otherwise. When used with `new`, `this` is the newly created instance. You can also set `this` explicitly using `call`, `apply`, or `bind`. When multiple rules could apply, `new` takes precedence, followed by explicit binding, then the method call context, then the default. Arrow functions are different — they don't have their own `this` and instead inherit from the enclosing lexical scope, making them ideal for callbacks and event handlers.",
     category: "JavaScript",
     difficulty: "medium",
   },
@@ -138,7 +138,7 @@ export const questions: Question[] = [
     id: 14,
     question: "What is the critical rendering path?",
     answer:
-      "The critical rendering path is the sequence of steps the browser takes to convert HTML, CSS, and JavaScript into pixels on screen: (1) Parse HTML → build DOM tree. (2) Parse CSS → build CSSOM tree. (3) Combine DOM + CSSOM → Render tree (only visible elements). (4) Layout — calculate geometry (position, size) for each element. (5) Paint — fill pixels for each element (colors, borders, shadows). (6) Composite — combine painted layers in correct order. CSS blocks rendering (render-blocking), JS blocks HTML parsing (parser-blocking) unless `async` or `defer`. Optimizing the CRP means reducing the resources on this path.",
+      "The critical rendering path is the sequence of steps the browser takes to convert HTML, CSS, and JavaScript into pixels on screen: (1) Parse HTML → build DOM tree. (2) Parse CSS → build CSSOM tree. (3) Combine DOM + CSSOM → Render tree (only visible elements). (4) Layout — calculate geometry (position, size) for each element. (5) Paint — fill pixels for each element (colors, borders, shadows). (6) Composite — combine painted layers in correct order. CSS blocks rendering (render-blocking), JS blocks HTML parsing (parser-blocking) unless `async` or `defer`. To improve initial load performance, minimize render-blocking CSS, defer non-critical JavaScript, reduce the number and size of critical resources, and inline above-the-fold styles where practical.",
     category: "CSS & HTML",
     difficulty: "hard",
   },
@@ -227,7 +227,7 @@ export const questions: Question[] = [
     id: 25,
     question: "Explain React's reconciliation algorithm.",
     answer:
-      "Reconciliation is how React diffs the old and new virtual DOM trees to determine minimal DOM updates. Key heuristics: (1) Elements of different types produce different trees — React unmounts the old tree and builds a new one. (2) Elements of the same type — React keeps the DOM node and updates only changed attributes. (3) Component elements of the same type — React updates props and re-renders. (4) Lists use `key` to match children across renders — stable keys enable React to reorder rather than recreate. The algorithm is O(n) rather than the O(n³) optimal tree diff because of these heuristics. React Fiber (since React 16) made reconciliation interruptible for concurrent rendering.",
+      "Reconciliation is how React diffs the old and new virtual DOM trees to determine minimal DOM updates. As described in React's documentation, the algorithm relies on two key assumptions to achieve O(n) performance instead of the theoretical O(n³) for tree diffs: (1) If the element type changes (e.g., `<div>` to `<span>`), React tears down the entire subtree and rebuilds it rather than trying to patch it. (2) If the element type stays the same, React preserves the DOM node and only updates the changed attributes or props. For lists of elements, `key` props let React match children across renders — stable keys enable efficient reordering instead of costly recreation. React Fiber (since React 16) made reconciliation interruptible, enabling concurrent rendering.",
     category: "React",
     difficulty: "hard",
   },
@@ -448,7 +448,7 @@ export const questions: Question[] = [
     id: 52,
     question: "How do you test React components effectively?",
     answer:
-      "Use React Testing Library, which encourages testing behavior rather than implementation. Principles: (1) Render the component as a user would see it. (2) Query elements the way users find them — by role, label, text, not by class or test ID. Priority: `getByRole` > `getByLabelText` > `getByText` > `getByTestId`. (3) Interact like a user — `userEvent.click()`, `userEvent.type()`. (4) Assert on visible outcomes — text content, element presence, accessibility states. Avoid: testing state variables directly, shallow rendering, testing implementation details (internal function calls). For async behavior: use `findBy` queries (wait for elements) or `waitFor`. Mock API calls with MSW (Mock Service Worker) for realistic network mocking.",
+      "Use React Testing Library (created by Kent C. Dodds), which encourages testing behavior rather than implementation. Principles: (1) Render the component as a user would see it. (2) Query elements the way users find them — by role, label, text, not by class or test ID. The library's recommended query priority is `getByRole` > `getByLabelText` > `getByText` > `getByTestId` (see the Testing Library docs for details). (3) Interact like a user — `userEvent.click()`, `userEvent.type()`. (4) Assert on visible outcomes — text content, element presence, accessibility states. Avoid: testing state variables directly, shallow rendering, testing implementation details (internal function calls). For async behavior: use `findBy` queries (wait for elements) or `waitFor`. Mock API calls with MSW (Mock Service Worker) for realistic network mocking.",
     category: "Testing",
     difficulty: "medium",
   },

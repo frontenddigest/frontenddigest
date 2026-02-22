@@ -98,6 +98,46 @@ export default function AboutPage() {
         </ul>
       </div>
 
+      <div id="attribution" className="mt-12">
+        <h2 className="text-2xl font-bold tracking-tight">
+          Attribution &amp; Sources
+        </h2>
+        <p className="mt-4 text-muted-foreground leading-relaxed">
+          Frontend Digest is an educational resource built for the frontend
+          community. Our content synthesizes widely known concepts, official
+          documentation, and established industry practices. Where specific
+          frameworks, models, or methodologies originated with particular
+          authors, we credit them inline.
+        </p>
+        <p className="mt-4 text-muted-foreground leading-relaxed">
+          We draw on the work of many contributors to the frontend ecosystem,
+          including official documentation from{" "}
+          <a href="https://react.dev" className="underline hover:text-foreground" target="_blank" rel="noopener noreferrer">React</a>,{" "}
+          <a href="https://developer.mozilla.org" className="underline hover:text-foreground" target="_blank" rel="noopener noreferrer">MDN Web Docs</a>,{" "}
+          <a href="https://web.dev" className="underline hover:text-foreground" target="_blank" rel="noopener noreferrer">web.dev</a>,
+          and the broader open-source community. Books and resources that have
+          shaped our content include Michael Watkins&apos;{" "}
+          <em>The First 90 Days</em>, Barbara Minto&apos;s{" "}
+          <em>The Minto Pyramid Principle</em>, Robert C. Martin&apos;s{" "}
+          <em>Clean Code</em>, Brad Frost&apos;s <em>Atomic Design</em>,
+          Michael Nygard&apos;s <em>Release It!</em>, Mike Cohn&apos;s{" "}
+          <em>Succeeding with Agile</em>, and the teachings of Martin Fowler,
+          Kent C. Dodds, and many others.
+        </p>
+        <p className="mt-4 text-muted-foreground leading-relaxed">
+          If you believe any content requires additional attribution or
+          correction, please{" "}
+          <a href="mailto:hello@frontenddigest.com" className="underline hover:text-foreground">
+            contact us
+          </a>{" "}
+          or open an issue on{" "}
+          <a href="https://github.com/frontenddigest/frontenddigest" className="underline hover:text-foreground" target="_blank" rel="noopener noreferrer">
+            GitHub
+          </a>
+          .
+        </p>
+      </div>
+
       <div className="mt-12 rounded-xl bg-muted/50 border border-border p-8 text-center">
         <h2 className="text-2xl font-bold">Ready to Start?</h2>
         <p className="mt-2 text-muted-foreground">

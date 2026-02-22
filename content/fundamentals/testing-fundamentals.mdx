@@ -13,7 +13,7 @@ Tests give you confidence to refactor, catch regressions early, and document beh
 
 ## The Testing Pyramid
 
-The pyramid model balances speed, coverage, and confidence. Many fast unit tests form the base; fewer integration tests in the middle; a handful of slow E2E tests at the top.
+Originally described by Mike Cohn in *Succeeding with Agile* (2009), the testing pyramid balances speed, coverage, and confidence. Many fast unit tests form the base; fewer integration tests in the middle; a handful of slow E2E tests at the top.
 
 ### Unit, Integration, and E2E
 
@@ -138,4 +138,4 @@ Use TDD for unit-level business logic. Write integration tests when composing fe
 
 ---
 
-Testing is an investment. Start with high-value unit tests for logic and key components, add integration tests for critical flows, and reserve E2E for a few essential journeys. Prefer Testing Library's philosophy—test behavior, not implementation—and use mocking judiciously. Over time, a solid test suite becomes a safety net that enables confident refactoring and faster iteration.
+Testing is an investment. Start with high-value unit tests for logic and key components, add integration tests for critical flows, and reserve E2E for a few essential journeys. Follow the guiding principle behind Kent C. Dodds' Testing Library—test behavior, not implementation—and use mocking judiciously. Over time, a solid test suite becomes a safety net that enables confident refactoring and faster iteration.
