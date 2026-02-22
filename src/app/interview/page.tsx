@@ -9,6 +9,7 @@ export const metadata: Metadata = {
   title: "Frontend Interview Questions | Frontend Digest",
   description:
     "55+ frontend technical interview questions with detailed answers. Practice with random questions covering JavaScript, React, CSS, TypeScript, performance, and more.",
+  alternates: { canonical: "https://frontenddigest.com/interview" },
 };
 
 const categoryIcons: Record<string, string> = {

@@ -7,3 +7,9 @@
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
+
+[[redirects]]
+  from = "https://frontenddigest.netlify.app/*"
+  to = "https://frontenddigest.com/:splat"
+  status = 301
+  force = true

@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { getArticle, getArticlesBySection, sections } from "@/lib/content";
 import { ArticleLayout } from "@/components/content/ArticleLayout";
 import { ArticlePageClient } from "@/components/content/ArticlePage";
+import { ArticleJsonLd, BreadcrumbJsonLd } from "@/components/seo/JsonLd";
 import { renderMDX } from "@/lib/mdx";
 
 const SECTION_ID = "architecture";
@@ -18,6 +19,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return {
     title: `${article.title} | Frontend Digest`,
     description: article.description,
+    alternates: { canonical: `https://frontenddigest.com/${SECTION_ID}/${slug}` },
     openGraph: {
       title: article.title,
       description: article.description,
@@ -53,15 +55,25 @@ export default async function ArticlePage({ params }: PageProps) {
   const content = await renderMDX(article.content);
 
   return (
-    <ArticlePageClient>
-      <ArticleLayout
-        article={article}
-        section={section}
-        prevArticle={prevArticle}
-        nextArticle={nextArticle}
-      >
-        {content}
-      </ArticleLayout>
-    </ArticlePageClient>
+    <>
+      <ArticleJsonLd article={article} />
+      <BreadcrumbJsonLd
+        items={[
+          { name: "Home", href: "/" },
+          { name: section.title, href: section.href },
+          { name: article.title, href: `/${SECTION_ID}/${slug}` },
+        ]}
+      />
+      <ArticlePageClient>
+        <ArticleLayout
+          article={article}
+          section={section}
+          prevArticle={prevArticle}
+          nextArticle={nextArticle}
+        >
+          {content}
+        </ArticleLayout>
+      </ArticlePageClient>
+    </>
   );
 }

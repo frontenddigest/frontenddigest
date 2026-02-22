@@ -6,6 +6,7 @@ export const metadata: Metadata = {
   title: "About | Frontend Digest",
   description:
     "Frontend Digest is your comprehensive guide to growing as a frontend engineer — from fundamentals to architecture, leadership, and AI.",
+  alternates: { canonical: "https://frontenddigest.com/about" },
 };
 
 export default function AboutPage() {

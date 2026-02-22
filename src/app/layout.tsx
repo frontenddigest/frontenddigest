@@ -50,6 +50,9 @@ export const metadata: Metadata = {
     description:
       "Your comprehensive guide to growing as a frontend engineer.",
   },
+  alternates: {
+    canonical: "https://frontenddigest.com",
+  },
   robots: {
     index: true,
     follow: true,

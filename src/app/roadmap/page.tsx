@@ -8,6 +8,7 @@ export const metadata: Metadata = {
   title: "Career Roadmap | Frontend Digest",
   description:
     "Visual career progression paths for frontend engineers at every stage.",
+  alternates: { canonical: "https://frontenddigest.com/roadmap" },
 };
 
 const tracks = [
