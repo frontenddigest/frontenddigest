@@ -18,8 +18,7 @@ const resourceLinks = [
 ];
 
 const connectLinks = [
-  { href: "#", label: "GitHub" },
-  { href: "#", label: "Twitter" },
+  { href: "https://github.com/frontenddigest/frontenddigest", label: "GitHub" },
 ];
 
 export function Footer() {
@@ -78,15 +77,17 @@ export function Footer() {
             <ul className="mt-4 space-y-3">
               {connectLinks.map((link) => (
                 <li key={link.label}>
-                  <Link
+                  <a
                     href={link.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className={cn(
                       "text-sm text-muted-foreground transition-colors",
                       "hover:text-foreground"
                     )}
                   >
                     {link.label}
-                  </Link>
+                  </a>
                 </li>
               ))}
             </ul>
