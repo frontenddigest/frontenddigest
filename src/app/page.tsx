@@ -1,4 +1,5 @@
 import { Hero } from "@/components/home/Hero";
+import { HomeCallouts } from "@/components/home/HomeCallouts";
 import { AudienceSelector } from "@/components/home/AudienceSelector";
 import { ContentPillars } from "@/components/home/ContentPillars";
 import { FeaturedContent } from "@/components/home/FeaturedContent";
@@ -12,6 +13,7 @@ export default function Home() {
     <>
       <WebSiteJsonLd />
       <Hero />
+      <HomeCallouts />
       <AudienceSelector />
       <ContentPillars />
       <FeaturedContent articles={featuredArticles} />

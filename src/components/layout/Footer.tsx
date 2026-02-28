@@ -18,6 +18,11 @@ const resourceLinks = [
   { href: "/tags", label: "Tags" },
   { href: "/rss.xml", label: "RSS" },
   { href: "/about", label: "About" },
+  { href: "/privacy", label: "Privacy" },
+];
+
+const contactLinks = [
+  { href: "/contact", label: "Contact" },
 ];
 
 const connectLinks = [
@@ -75,6 +80,30 @@ export function Footer() {
 
           <div>
             <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+              Contact
+            </h3>
+            <ul className="mt-4 space-y-3">
+              {contactLinks.map((link) => (
+                <li key={link.href}>
+                  <Link
+                    href={link.href}
+                    className={cn(
+                      "text-sm text-muted-foreground transition-colors",
+                      "hover:text-foreground"
+                    )}
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Feedback, topic ideas, enquiries
+            </p>
+          </div>
+
+          <div>
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
               Connect
             </h3>
             <ul className="mt-4 space-y-3">
@@ -103,6 +132,8 @@ export function Footer() {
           <p className="text-sm text-muted-foreground text-center">
             © {currentYear} Frontend Digest · Educational content for the
             frontend community · <Link href="/about#attribution" className="underline hover:text-foreground">Attribution</Link>
+            {" · "}
+            <Link href="/privacy" className="underline hover:text-foreground">Privacy</Link>
           </p>
         </div>
       </div>

@@ -5,9 +5,16 @@ import { ArrowRight, GraduationCap, Zap, Users, Rocket } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
-  title: "Career Roadmap | Frontend Digest",
+  title: "Frontend Career Roadmap — Junior to CTO | Frontend Digest",
   description:
-    "Visual career progression paths for frontend engineers at every stage.",
+    "Frontend career path: from junior developer to frontend lead, architect, and CTO. Frontend preparation, interviews, and growth at every stage.",
+  keywords: [
+    "frontend career",
+    "frontend preparation",
+    "frontend lead",
+    "frontend architect",
+    "frontend roadmap",
+  ],
   alternates: { canonical: "https://frontenddigest.com/roadmap" },
 };
 

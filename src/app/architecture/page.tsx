@@ -2,9 +2,15 @@ import type { Metadata } from "next";
 import { SectionPage } from "@/components/content/SectionPage";
 
 export const metadata: Metadata = {
-  title: "Frontend Architecture | Frontend Digest",
+  title: "Frontend Architecture — For Architects & Leads | Frontend Digest",
   description:
-    "Design scalable systems, choose the right patterns, and build frontend infrastructure that lasts.",
+    "Frontend architect and lead resources: scalable systems, design patterns, performance, rendering, micro-frontends, design systems, and frontend infrastructure.",
+  keywords: [
+    "frontend architect",
+    "frontend architecture",
+    "frontend lead",
+    "frontend career",
+  ],
   alternates: { canonical: "https://frontenddigest.com/architecture" },
 };
 

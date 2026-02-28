@@ -6,9 +6,16 @@ import { QuestionCard } from "@/components/interview/QuestionCard";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
-  title: "Frontend Interview Questions | Frontend Digest",
+  title: "Frontend Interview Questions & Preparation | Frontend Digest",
   description:
-    "55+ frontend technical interview questions with detailed answers. Practice with random questions covering JavaScript, React, CSS, TypeScript, performance, and more.",
+    "Frontend preparation made easy: 55+ frontend interview questions with detailed answers. Practice for frontend interviews — JavaScript, React, CSS, TypeScript, performance, system design, and more.",
+  keywords: [
+    "frontend interviews",
+    "frontend preparation",
+    "frontend interview questions",
+    "JavaScript interview",
+    "React interview",
+  ],
   alternates: { canonical: "https://frontenddigest.com/interview" },
 };
 

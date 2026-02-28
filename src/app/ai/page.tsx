@@ -2,9 +2,10 @@ import type { Metadata } from "next";
 import { SectionPage } from "@/components/content/SectionPage";
 
 export const metadata: Metadata = {
-  title: "AI & Frontend Engineering | Frontend Digest",
+  title: "Frontend AI — AI for Frontend Developers | Frontend Digest",
   description:
-    "Leverage AI to supercharge your workflow, build intelligent UIs, and stay ahead of the curve.",
+    "Frontend AI guide: use AI to level up your frontend career — prompt engineering, AI-powered development, testing, design systems, and building AI features.",
+  keywords: ["frontend AI", "AI frontend", "frontend career", "AI for developers"],
   alternates: { canonical: "https://frontenddigest.com/ai" },
 };
 

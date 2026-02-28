@@ -21,17 +21,21 @@ export const metadata: Metadata = {
     template: "%s | Frontend Digest",
   },
   description:
-    "Your comprehensive guide to growing as a frontend engineer. From fundamentals to architecture, leadership to AI — content for every career stage.",
+    "Frontend preparation, interviews, and career growth. Guides for frontend developers, leads, and architects — from fundamentals and system design to frontend AI and leadership.",
   keywords: [
     "frontend engineering",
     "frontend architecture",
+    "frontend preparation",
+    "frontend interviews",
+    "frontend architect",
+    "frontend lead",
+    "frontend career",
+    "frontend AI",
     "web development",
     "React",
     "JavaScript",
     "CSS",
     "technical leadership",
-    "frontend career",
-    "AI frontend",
   ],
   authors: [{ name: "Frontend Digest" }],
   creator: "Frontend Digest",
@@ -42,7 +46,7 @@ export const metadata: Metadata = {
     siteName: "Frontend Digest",
     title: "Frontend Digest — Level Up Your Frontend Engineering Career",
     description:
-      "Your comprehensive guide to growing as a frontend engineer. From fundamentals to architecture, leadership to AI.",
+      "Frontend preparation, interviews, and career. For frontend developers, leads, and architects — fundamentals, system design, frontend AI, leadership.",
   },
   twitter: {
     card: "summary_large_image",

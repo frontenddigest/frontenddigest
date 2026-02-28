@@ -2,9 +2,15 @@ import type { Metadata } from "next";
 import { SectionPage } from "@/components/content/SectionPage";
 
 export const metadata: Metadata = {
-  title: "Frontend System Design | Frontend Digest",
+  title: "Frontend System Design — Interview Prep & Practice | Frontend Digest",
   description:
-    "Practice frontend system design with real interview questions — from autocomplete to video players to collaborative editors.",
+    "Master frontend system design for interviews. Step-by-step guides: news feed, autocomplete, video player, dashboard, chat, collaborative editor, and more. Frontend preparation for system design rounds.",
+  keywords: [
+    "frontend system design",
+    "frontend interviews",
+    "frontend preparation",
+    "system design interview",
+  ],
   alternates: { canonical: "https://frontenddigest.com/system-design" },
 };
 

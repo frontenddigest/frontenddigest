@@ -2,9 +2,15 @@ import type { Metadata } from "next";
 import { SectionPage } from "@/components/content/SectionPage";
 
 export const metadata: Metadata = {
-  title: "Leading Frontend Teams | Frontend Digest",
+  title: "Frontend Lead & Team Leadership | Frontend Digest",
   description:
-    "Grow from individual contributor to technical leader. Build culture, mentor engineers, and drive impact.",
+    "Become a frontend lead and technical leader. Resources for frontend architects and leads: mentoring engineers, building culture, code review, hiring, and driving impact.",
+  keywords: [
+    "frontend lead",
+    "frontend architect",
+    "technical leadership",
+    "frontend career",
+  ],
   alternates: { canonical: "https://frontenddigest.com/leadership" },
 };
 
