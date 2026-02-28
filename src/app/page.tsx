@@ -1,4 +1,5 @@
 import { Hero } from "@/components/home/Hero";
+import { NewContentBanner } from "@/components/home/NewContentBanner";
 import { HomeCallouts } from "@/components/home/HomeCallouts";
 import { AudienceSelector } from "@/components/home/AudienceSelector";
 import { ContentPillars } from "@/components/home/ContentPillars";
@@ -12,6 +13,7 @@ export default function Home() {
   return (
     <>
       <WebSiteJsonLd />
+      <NewContentBanner />
       <Hero />
       <HomeCallouts />
       <AudienceSelector />

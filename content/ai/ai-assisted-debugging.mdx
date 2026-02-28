@@ -1,0 +1,31 @@
+---
+title: "AI-Assisted Debugging"
+description: "Using AI to narrow down bugs, interpret stack traces, and suggest fixes. How to prompt and when to trust the output."
+date: "2026-02-27"
+author: "Frontend Digest"
+audience: ["beginner", "senior"]
+tags: ["ai", "debugging", "productivity"]
+order: 8
+featured: false
+---
+
+Debugging is often a mix of intuition and systematic search. AI can help by explaining errors, suggesting causes, and proposing fixes—but you need to provide good context and verify the output. This guide covers how to use AI effectively when debugging.
+
+## What to Give the AI
+
+Paste the error message and stack trace. Include the relevant code (the function or component that failed, and any related state or props). Mention what you've already tried so the AI doesn't suggest the same. If the bug is intermittent, say so and describe the conditions. Environment details (browser, Node version, framework) help for framework or runtime-specific issues.
+
+## Asking the Right Questions
+
+Instead of only "Why is this broken?", ask "What could cause [specific symptom] in this code?" or "Explain this error and what usually fixes it." Ask for step-by-step diagnosis: "What should I check first?" You can also ask for a minimal reproduction or for the fix with an explanation so you learn, not just copy.
+
+## Verifying Suggestions
+
+AI can be wrong—wrong line, wrong fix, or outdated API. Apply suggestions in a branch or copy; run tests and manual checks. If the fix doesn't work, feed that back: "That didn't fix it; the error is still X." Use AI to narrow the search space, then confirm with your own reasoning and tests.
+
+## When AI Helps Most
+
+AI is especially useful for: cryptic framework or library errors, unfamiliar languages or APIs, and brainstorming possible causes. It's less reliable for: race conditions, environment-specific bugs, or code that depends on large codebases the model hasn't seen. In those cases, use AI to generate hypotheses, then validate them yourself.
+
+---
+AI-assisted debugging speeds up the loop from error to hypothesis to fix. Always verify; use AI as a partner, not an oracle.

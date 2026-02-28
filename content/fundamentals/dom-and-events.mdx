@@ -1,0 +1,39 @@
+---
+title: "DOM and Events"
+description: "Event loop, event delegation, bubbling and capture, target vs currentTarget, and how to work with the DOM and events in JavaScript."
+date: "2026-02-27"
+author: "Frontend Digest"
+audience: ["beginner"]
+tags: ["javascript", "dom", "events", "fundamentals"]
+order: 13
+featured: false
+---
+
+The Document Object Model (DOM) is the live representation of your HTML in memory. Understanding how to query it, mutate it, and respond to user actions via events is essential for any frontend developer. This guide covers the core concepts you need.
+
+## The DOM Tree
+
+The browser parses HTML into a tree of nodes. **Element nodes** represent tags; **text nodes** represent text content. You query the DOM with `document.querySelector`, `getElementById`, or `querySelectorAll`. The returned nodes are live—changes to the DOM are reflected in your references. Remember that querying is relatively expensive; cache references when you use them repeatedly.
+
+## Event Loop and Async Behavior
+
+JavaScript is single-threaded. The **event loop** processes the call stack, then pulls from the task queue (and microtask queue) to run callbacks. When you attach an event listener, the handler runs later, when the event fires. This means synchronous code runs to completion before any event handler runs. Understanding this prevents confusion about "when" things execute and helps you reason about timers, fetch callbacks, and user interactions.
+
+## Event Bubbling and Capture
+
+Events in the DOM have three phases: **capture** (from root to target), **target**, and **bubble** (from target back to root). By default, listeners are registered for the bubble phase. You can use the third argument of `addEventListener` (`true`) to listen in the capture phase. Most of the time you'll use bubbling—it's what allows **event delegation**.
+
+## Event Delegation
+
+Instead of attaching a listener to every button or row, attach one listener to a parent. When an event bubbles up, check `event.target` (or `event.target.closest('.your-selector')`) to see which child was actually clicked. This reduces memory use, works for dynamically added elements, and keeps code simple. Use it for lists, button groups, and tables.
+
+## target vs currentTarget
+
+**`event.target`** is the element that triggered the event (the one the user clicked). **`event.currentTarget`** is the element the listener is attached to. In event delegation, `currentTarget` is the parent you attached the listener to; `target` is the child that was clicked. Use `currentTarget` when you need a stable reference to the element owning the handler.
+
+## preventDefault and stopPropagation
+
+**`event.preventDefault()`** stops the browser's default action (e.g. following a link, submitting a form). The event still bubbles. **`event.stopPropagation()`** stops the event from bubbling (or capturing further). Use `preventDefault` when you want to handle the action yourself (e.g. client-side form submit). Use `stopPropagation` sparingly—it can break delegation and analytics. Prefer `preventDefault`; only stop propagation when you have a clear reason (e.g. a modal overlay that shouldn't close when clicking inside).
+
+---
+Mastering the DOM and events unlocks interactive UIs. Combine delegation with clear target/currentTarget usage and minimal propagation stopping for maintainable frontend code.

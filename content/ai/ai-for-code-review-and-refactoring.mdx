@@ -1,0 +1,31 @@
+---
+title: "AI for Code Review and Refactoring"
+description: "Using AI to review PRs, suggest refactors, and improve code quality. What to automate and what to keep human."
+date: "2026-02-27"
+author: "Frontend Digest"
+audience: ["beginner", "senior"]
+tags: ["ai", "code-review", "refactoring", "productivity"]
+order: 7
+featured: false
+---
+
+AI can help with code review and refactoring by spotting common issues, suggesting cleaner patterns, and drafting improvements. Used well, it speeds up feedback and keeps quality high. Used poorly, it adds noise or suggests wrong changes. This guide covers how to use AI effectively for review and refactoring.
+
+## What AI Is Good At in Review
+
+AI can catch: style inconsistencies, obvious bugs (null checks, off-by-ones), security anti-patterns, duplicated code, and missing tests for critical paths. It can suggest: naming improvements, simpler logic, and alignment with common patterns. Use it as a first pass—paste a diff or file and ask "Review this for bugs, style, and potential improvements."
+
+## What to Keep Human
+
+Architecture fit, product logic, and team conventions often require human judgment. AI doesn't know your design decisions or why a shortcut was taken. Use AI for mechanical feedback; humans should own the final call on design, trade-offs, and "does this belong here."
+
+## Refactoring with AI
+
+Ask AI to refactor for clarity, reduce duplication, or apply a pattern (e.g. "Refactor this to use the Compound Component pattern"). Provide context: framework, style guide, and what to preserve (e.g. public API). Review the output carefully—AI can change behavior or introduce bugs. Run tests and diff the logic, not just the structure.
+
+## Integrating into Your Workflow
+
+Use AI in the IDE (Copilot, Cursor) for inline suggestions, or paste snippets into a chat for a focused review. Some teams use AI-powered bots in PR comments for automated checks; pair that with human review so the bot's suggestions are vetted.
+
+---
+AI can make code review and refactoring faster and more consistent. Use it for pattern-matching and suggestions; keep humans in the loop for design and judgment.

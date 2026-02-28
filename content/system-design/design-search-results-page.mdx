@@ -1,0 +1,39 @@
+---
+title: "Design a Search Results Page"
+description: "System design for a search results page: filters, sorting, facets, infinite scroll vs pagination, and performance at scale."
+date: "2026-02-27"
+author: "Frontend Digest"
+audience: ["senior", "architect"]
+tags: ["system-design", "interview", "search", "filters"]
+order: 16
+featured: false
+---
+
+A search results page is a core pattern in e-commerce, content sites, and dashboards. It combines query input, result list, filters, sorting, and often facets. Here's how to structure your answer in an interview.
+
+## Requirements Clarification
+
+**Functional:** Display results for a query; support filters (category, price range, etc.) and sort options (relevance, date, price); show facets or filter counts; load more via pagination or infinite scroll. **Non-functional:** Fast first result (e.g. &lt; 1.5s), SEO-friendly URLs for key filters, accessible filters and result list.
+
+## High-Level Architecture
+
+SearchPage contains: SearchInput (debounced), FilterSidebar (facets, applied filters), SortDropdown, ResultList (virtualized if large), and Pagination or infinite scroll sentinel. State: query, filters, sort, page/cursor; sync with URL (query params) for shareability and SEO.
+
+## API Design
+
+GET /search?q=...&filters=...&sort=...&page=... or cursor-based. Response: results array, total count (or approximate), facet counts per filter. Use debouncing (e.g. 300ms) on query input; consider prefetching or caching popular queries.
+
+## Filters and Facets
+
+Facets are the distinct values and counts per filter dimension (e.g. "Category: Electronics (120), Books (80)"). Backend returns them with the result set. Frontend applies selected filters to the next request; show applied filters as chips with clear action. Avoid filter combinations that return zero results—either disable or show "no results" with clear CTA to reset.
+
+## Pagination vs Infinite Scroll
+
+Pagination is better for SEO, deep linking, and keyboard users. Infinite scroll is better for mobile and discovery. Hybrid: "Load more" button that appends results. Preserve scroll position when navigating back. For very long sessions, consider virtualizing the list.
+
+## Performance and Accessibility
+
+Virtualize long lists; lazy-load images in results. Ensure focus management when filters change and results update. Use semantic list and headings; announce result count to screen readers. Loading and empty states must be clear and accessible.
+
+---
+A well-designed search results page balances power (filters, sort) with simplicity, keeps URL in sync, and stays fast and accessible.

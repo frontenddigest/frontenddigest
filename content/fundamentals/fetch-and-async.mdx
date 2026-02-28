@@ -1,0 +1,35 @@
+---
+title: "Fetch and Async"
+description: "Using fetch, async/await, error handling, loading states, and patterns for data loading in the browser."
+date: "2026-02-27"
+author: "Frontend Digest"
+audience: ["beginner"]
+tags: ["javascript", "fetch", "async", "fundamentals"]
+order: 14
+featured: false
+---
+
+Loading data from the network is a core frontend task. The Fetch API and async/await make it straightforward—but you still need clear patterns for errors, loading states, and cancellation. This guide covers the essentials.
+
+## The Fetch API
+
+`fetch(url, options)` returns a **Promise** that resolves with a **Response** object. The response body isn't parsed yet—you call `.json()`, `.text()`, or `.blob()` to get the data. Fetch only rejects on network failure (e.g. no connection); HTTP errors (404, 500) resolve with `response.ok === false`. Always check `response.ok` or `response.status` and throw or handle errors accordingly.
+
+## async/await
+
+Declare a function with `async` to use `await` inside it. `await` pauses until the Promise settles and returns the resolved value. Use try/catch to handle rejections. Async functions always return a Promise. Keep async logic in dedicated functions rather than mixing sync and async in confusing ways.
+
+## Error Handling
+
+Check `!response.ok` and throw `new Error(...)` so a single catch block can handle both network and HTTP errors. Surface user-friendly messages and log details for debugging. For forms or retry flows, distinguish transient errors (retry) from permanent ones (show message).
+
+## Loading and Empty States
+
+While a request is in flight, show a loading indicator (skeleton, spinner, or disabled state). When the request fails, show an error message and optionally a retry action. When the list is empty (no error), show an empty state. Avoid flashing "loading" then "empty" if the API returns 200 with an empty array—treat that as a valid empty result.
+
+## AbortController for Cancellation
+
+Use **AbortController** to cancel in-flight requests when the user navigates away or changes filters. Pass `signal: controller.signal` in fetch options and call `controller.abort()` when needed. The Promise rejects with an AbortError—catch it and ignore if you've intentionally aborted.
+
+---
+Consistent fetch usage with async/await, proper error and loading handling, and cancellation where needed will make your data-loading code predictable and user-friendly.

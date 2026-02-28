@@ -1,0 +1,35 @@
+---
+title: "Internationalization (i18n)"
+description: "Supporting multiple languages and regions: locales, formatting, RTL, and translation workflows for frontend applications."
+date: "2026-02-27"
+author: "Frontend Digest"
+audience: ["senior", "architect"]
+tags: ["architecture", "i18n", "localization", "accessibility"]
+order: 18
+featured: false
+---
+
+Internationalization (i18n) is the design and implementation of your app so it can adapt to different languages and regions. Localization (l10n) is the actual translation and locale-specific formatting. This guide covers the frontend side of both.
+
+## Locales and Language Tags
+
+A **locale** is a language and optionally a region (e.g. `en-US`, `fr-FR`). Use BCP 47 language tags consistently. Detect the user's locale from browser settings, URL, or user preference and store it (URL param, cookie, or app state). Let users override it in settings.
+
+## Extracting and Managing Strings
+
+Don't hardcode user-facing strings. Use keys (e.g. `welcome.title`) and look up the translated string for the current locale. Store translations in JSON or similar; load the right bundle per locale. Support pluralization and interpolation (e.g. "You have {count} items"). Libraries like react-intl, i18next, or formatjs handle this.
+
+## Formatting: Dates, Numbers, Currency
+
+Use the **Intl** API (Intl.DateTimeFormat, Intl.NumberFormat, Intl.RelativeTimeFormat) to format dates, numbers, and currency according to the user's locale. Never concatenate date parts manually—locales differ in order and separators. Same for numbers (decimal and thousands separators) and currency (symbol position, spacing).
+
+## RTL (Right-to-Left)
+
+For Arabic and Hebrew, support RTL layout. Use CSS logical properties (margin-inline-start instead of margin-left) and `dir="rtl"` on the document or container. Test that layouts flip correctly and that icons and asymmetrical UI are mirrored where appropriate. Consider `dir="auto"` for user-generated content that might be mixed LTR/RTL.
+
+## Translation Workflow
+
+Translations are often maintained in a separate system or by non-engineers. Use a workflow that exports source strings, imports translations, and keeps keys in sync. Missing translations should fall back to a default (e.g. source language) and be visible in dev so nothing ships untranslated by accident.
+
+---
+Solid i18n from the start avoids costly rework. Centralize strings, use Intl for formatting, and support RTL so your product can serve a global audience.

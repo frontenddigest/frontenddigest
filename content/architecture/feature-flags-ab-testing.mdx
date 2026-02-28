@@ -1,0 +1,35 @@
+---
+title: "Feature Flags and A/B Testing"
+description: "Ship behind flags, run experiments, and roll out features gradually. How to implement feature flags and A/B testing in frontend applications."
+date: "2026-02-27"
+author: "Frontend Digest"
+audience: ["senior", "architect"]
+tags: ["architecture", "feature-flags", "experimentation"]
+order: 17
+featured: false
+---
+
+Feature flags let you deploy code without enabling it for everyone. A/B testing lets you compare variants to improve conversion or engagement. Together they support safer releases and data-driven product decisions. This guide covers how to implement them on the frontend.
+
+## What Feature Flags Are For
+
+Flags let you turn features on or off without a new deploy. Use them for: gradual rollouts, killing switches for problematic code, enabling features per user or segment, and separating deploy from release. The frontend reads a flag (from config, API, or a provider) and branches UI or behavior accordingly.
+
+## Implementing Flags on the Frontend
+
+Flags can come from build-time config (env vars), a runtime config endpoint, or a third-party provider (LaunchDarkly, Split, etc.). For simple cases, a JSON config fetched at app load is enough. For experiments and targeting, use a provider that supports user attributes and rules. Always have a default (e.g. off) when the flag service fails so you don't break the app.
+
+## A/B Testing Basics
+
+Define a hypothesis, create variants (e.g. A and B), assign users to a variant (randomly or by segment), and measure an outcome (click-through, sign-up, revenue). Assignment must be stable—the same user sees the same variant on repeat visits. Persist the assignment in a cookie or local storage, or let the backend return the variant.
+
+## Frontend Responsibilities
+
+The frontend requests the user's variant (or flags) from your backend or provider, then renders the right UI. Avoid flicker by resolving flags before first paint where possible (e.g. inline script or server-rendered segment). For client-rendered apps, show a neutral loading state until flags are ready, or use defaults and hydrate with the correct variant.
+
+## Ethics and Stats
+
+Don't run experiments that harm users or mislead them. Use proper statistical methods and sample sizes; don't declare a winner too early. Document your experiments and clean up flags that are no longer needed to avoid technical debt.
+
+---
+Feature flags and A/B testing, used with clear ownership and rollout rules, make releases safer and product decisions more evidence-based.

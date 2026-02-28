@@ -1,0 +1,39 @@
+---
+title: "Design a Comments Thread"
+description: "System design for nested comments: replies, pagination, real-time updates, and moderation. Frontend architecture and data shape."
+date: "2026-02-27"
+author: "Frontend Digest"
+audience: ["senior", "architect"]
+tags: ["system-design", "interview", "comments", "real-time"]
+order: 17
+featured: false
+---
+
+Comments threads appear on content sites, dashboards, and collaboration tools. They can be flat or nested, with pagination and sometimes real-time updates. Here's how to approach this in a system design interview.
+
+## Requirements Clarification
+
+**Functional:** Display comments in a thread (flat or nested); post a comment; reply to a comment; edit/delete (own comments); optional: reactions, sort (newest/oldest/top). **Non-functional:** Load initial comments quickly; expand or paginate; real-time for new comments optional; handle deep nesting (e.g. max depth or "Load more replies").
+
+## Data Model and API
+
+Comment: id, author, body, createdAt, parentId (null for top-level), replyCount. Tree can be built client-side from flat list with parentId, or API returns nested structure. GET /comments?postId=...&limit=...&cursor=... for initial load; GET /comments/:id/replies for "Load more replies"; POST to create; PATCH/DELETE for edit/delete.
+
+## Frontend Component Structure
+
+CommentThread (container), CommentCard (single comment: author, body, actions, reply form when "Reply" clicked), recursive CommentCard for replies. For deep threads, either cap depth and show "View N more replies" or flatten with indentation. Virtualize only if thread is extremely long.
+
+## Pagination and "Load More"
+
+Initial load: top-level comments only, page size (e.g. 10). "Load more" fetches next page and appends. Replies: load on demand when user expands "N replies" to avoid huge payloads. Cache loaded comments in client state (e.g. React Query) keyed by postId and optionally commentId for replies.
+
+## Real-Time Updates
+
+Optional: subscribe to new comments for the post (WebSocket or SSE). When a new comment arrives, prepend or append to list and optionally show a "New comment" indicator. Optimistic updates: add the new comment to UI immediately, then confirm or rollback on server response.
+
+## Moderation and Accessibility
+
+If moderation is required, show "Pending" or "Hidden" state; only moderators see flagged content. Comments should be keyboard navigable and screen-reader friendly; use semantic list and aria-live for new comments if real-time.
+
+---
+A comments thread design that separates top-level and reply loading, uses a clear data shape, and optionally adds real-time and moderation will demonstrate solid frontend system design.
