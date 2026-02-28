@@ -17,11 +17,15 @@ export function ContactForm() {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [botField, setBotField] = useState("");
-  const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
+  const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error" | "local">("idle");
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setStatus("submitting");
+
+    const isLocal =
+      typeof window !== "undefined" &&
+      (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
 
     const formData = new URLSearchParams();
     formData.set("form-name", FORM_NAME);
@@ -32,7 +36,8 @@ export function ContactForm() {
     if (botField) formData.set("bot-field", botField);
 
     try {
-      const res = await fetch("/contact", {
+      // POST to the static form file so Netlify Forms receives the submission (required for Next.js)
+      const res = await fetch("/contact-form.html", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: formData.toString(),
@@ -45,7 +50,8 @@ export function ContactForm() {
       setMessage("");
       setBotField("");
     } catch {
-      setStatus("error");
+      // Netlify Forms only runs on Netlify; local dev always fails with 500/405
+      setStatus(isLocal ? "local" : "error");
     }
   }
 
@@ -179,6 +185,16 @@ export function ContactForm() {
         <p className="text-sm text-destructive">
           Something went wrong. Please try again or email us directly.
         </p>
+      )}
+
+      {status === "local" && (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-foreground">
+          <p className="font-medium">Contact form only works when deployed to Netlify.</p>
+          <p className="mt-1 text-muted-foreground">
+            Submissions from localhost are not processed. Deploy the site to Netlify and test the
+            form there to receive emails.
+          </p>
+        </div>
       )}
 
       <button
