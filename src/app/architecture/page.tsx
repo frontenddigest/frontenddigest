@@ -8,6 +8,18 @@ export const metadata: Metadata = {
   alternates: { canonical: "https://frontenddigest.com/architecture" },
 };
 
-export default function ArchitecturePage() {
-  return <SectionPage sectionId="architecture" />;
+interface PageProps {
+  searchParams?: Promise<{ topics?: string | string[] }>;
+}
+
+function parseTopics(input?: string | string[]): string[] {
+  if (!input) return [];
+  if (Array.isArray(input)) return input.flatMap((v) => v.split(","));
+  return input.split(",");
+}
+
+export default async function ArchitecturePage({ searchParams }: PageProps) {
+  const sp = (await searchParams) ?? {};
+  const topics = parseTopics(sp.topics);
+  return <SectionPage sectionId="architecture" topics={topics} />;
 }

@@ -10,10 +10,12 @@ const navLinks = [
   { href: "/fundamentals", label: "Fundamentals" },
   { href: "/architecture", label: "Architecture" },
   { href: "/system-design", label: "System Design" },
+  { href: "/latest", label: "Latest" },
   { href: "/interview", label: "Interview Prep" },
   { href: "/leadership", label: "Leadership" },
   { href: "/communication", label: "Communication" },
   { href: "/ai", label: "AI" },
+  { href: "/tags", label: "Tags" },
   { href: "/roadmap", label: "Roadmap" },
 ];
 

@@ -8,6 +8,18 @@ export const metadata: Metadata = {
   alternates: { canonical: "https://frontenddigest.com/ai" },
 };
 
-export default function AiPage() {
-  return <SectionPage sectionId="ai" />;
+interface PageProps {
+  searchParams?: Promise<{ topics?: string | string[] }>;
+}
+
+function parseTopics(input?: string | string[]): string[] {
+  if (!input) return [];
+  if (Array.isArray(input)) return input.flatMap((v) => v.split(","));
+  return input.split(",");
+}
+
+export default async function AiPage({ searchParams }: PageProps) {
+  const sp = (await searchParams) ?? {};
+  const topics = parseTopics(sp.topics);
+  return <SectionPage sectionId="ai" topics={topics} />;
 }

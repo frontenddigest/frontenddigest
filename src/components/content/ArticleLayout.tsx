@@ -68,12 +68,16 @@ export function ArticleLayout({
             {article.tags.length > 0 && (
               <div className="mt-4 flex flex-wrap gap-2">
                 {article.tags.map((tag) => (
-                  <span
+                  <Link
                     key={tag}
-                    className="rounded-md bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground"
+                    href={`/tags/${encodeURIComponent(tag.trim().toLowerCase())}`}
+                    className={cn(
+                      "rounded-md bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground",
+                      "transition-colors hover:bg-muted/70 hover:text-foreground"
+                    )}
                   >
                     {tag}
-                  </span>
+                  </Link>
                 ))}
               </div>
             )}

@@ -5,6 +5,7 @@ const navigationLinks = [
   { href: "/fundamentals", label: "Fundamentals" },
   { href: "/architecture", label: "Architecture" },
   { href: "/system-design", label: "System Design" },
+  { href: "/latest", label: "Latest" },
   { href: "/interview", label: "Interview Prep" },
   { href: "/leadership", label: "Leadership" },
   { href: "/communication", label: "Communication" },
@@ -14,6 +15,8 @@ const navigationLinks = [
 
 const resourceLinks = [
   { href: "/roadmap", label: "Roadmap" },
+  { href: "/tags", label: "Tags" },
+  { href: "/rss.xml", label: "RSS" },
   { href: "/about", label: "About" },
 ];
 

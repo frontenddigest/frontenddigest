@@ -23,6 +23,15 @@ export interface Article extends ArticleMeta {
 
 const contentDirectory = path.join(process.cwd(), "content");
 
+function normalizeTag(tag: string): string {
+  return tag.trim().toLowerCase();
+}
+
+function safeDateMs(dateStr: string): number {
+  const ms = new Date(dateStr).getTime();
+  return Number.isFinite(ms) ? ms : 0;
+}
+
 export function getArticlesBySection(section: string): ArticleMeta[] {
   const sectionDir = path.join(contentDirectory, section);
 
@@ -98,6 +107,31 @@ export function getAllArticles(): ArticleMeta[] {
 
 export function getFeaturedArticles(): ArticleMeta[] {
   return getAllArticles().filter((a) => a.featured);
+}
+
+export function getAllArticlesByDate(): ArticleMeta[] {
+  return getAllArticles().sort((a, b) => safeDateMs(b.date) - safeDateMs(a.date));
+}
+
+export function getAllTags(): { tag: string; count: number }[] {
+  const counts = new Map<string, number>();
+  for (const article of getAllArticles()) {
+    for (const tag of article.tags ?? []) {
+      const normalized = normalizeTag(tag);
+      if (!normalized) continue;
+      counts.set(normalized, (counts.get(normalized) ?? 0) + 1);
+    }
+  }
+  return [...counts.entries()]
+    .map(([tag, count]) => ({ tag, count }))
+    .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
+}
+
+export function getArticlesByTag(tag: string): ArticleMeta[] {
+  const target = normalizeTag(tag);
+  return getAllArticles()
+    .filter((a) => (a.tags ?? []).some((t) => normalizeTag(t) === target))
+    .sort((a, b) => safeDateMs(b.date) - safeDateMs(a.date));
 }
 
 export const sections = [

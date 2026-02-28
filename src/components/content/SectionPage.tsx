@@ -7,6 +7,7 @@ import {
   MessageSquare,
   Sparkles,
 } from "lucide-react";
+import Link from "next/link";
 import { getArticlesBySection, sections } from "@/lib/content";
 import { ArticleCard } from "@/components/content/ArticleCard";
 import { cn } from "@/lib/utils";
@@ -23,11 +24,23 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
 
 interface SectionPageProps {
   sectionId: string;
+  topics?: string[];
 }
 
-export function SectionPage({ sectionId }: SectionPageProps) {
+function normalizeTopic(topic: string): string {
+  return topic.trim().toLowerCase();
+}
+
+export function SectionPage({ sectionId, topics }: SectionPageProps) {
   const section = sections.find((s) => s.id === sectionId);
-  const articles = getArticlesBySection(sectionId);
+  const allArticles = getArticlesBySection(sectionId);
+  const normalizedTopics = (topics ?? []).map(normalizeTopic).filter(Boolean);
+  const articles =
+    normalizedTopics.length > 0
+      ? allArticles.filter((a) =>
+          (a.tags ?? []).some((t) => normalizedTopics.includes(normalizeTopic(t)))
+        )
+      : allArticles;
   const Icon = section ? iconMap[section.icon] : Code;
 
   if (!section) return null;
@@ -54,6 +67,28 @@ export function SectionPage({ sectionId }: SectionPageProps) {
         <p className="mt-2 max-w-3xl text-lg text-muted-foreground">
           {section.description}
         </p>
+
+        {normalizedTopics.length > 0 && (
+          <div className="mt-6 flex flex-wrap items-center gap-2">
+            <span className="text-sm text-muted-foreground">Filtered by</span>
+            <div className="flex flex-wrap gap-2">
+              {normalizedTopics.map((topic) => (
+                <span
+                  key={topic}
+                  className="rounded-md bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground"
+                >
+                  {topic}
+                </span>
+              ))}
+            </div>
+            <Link
+              href={section.href}
+              className="ml-1 text-sm font-medium text-primary hover:underline"
+            >
+              Clear
+            </Link>
+          </div>
+        )}
       </div>
 
       {articles.length > 0 ? (
@@ -74,11 +109,14 @@ export function SectionPage({ sectionId }: SectionPageProps) {
             <Icon className="h-8 w-8" />
           </div>
           <p className="text-lg font-medium text-muted-foreground">
-            Content coming soon
+            No matching articles found
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
-            We&apos;re crafting in-depth articles for this section. Check back
-            soon.
+            Try a different topic filter, or{" "}
+            <Link href={section.href} className="underline hover:text-foreground">
+              clear filters
+            </Link>{" "}
+            to see everything.
           </p>
         </div>
       )}
