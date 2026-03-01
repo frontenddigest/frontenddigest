@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useTheme } from "next-themes";
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Menu, X, Sun, Moon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -38,7 +39,8 @@ export function Navbar() {
     <header
       className={cn(
         "sticky top-0 z-50 w-full border-b border-border/40",
-        "bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/60"
+        "bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/60",
+        mobileMenuOpen && "z-[100]"
       )}
     >
       <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
@@ -96,46 +98,53 @@ export function Navbar() {
         </div>
       </nav>
 
-      {/* Mobile menu overlay */}
-      <div
-        className={cn(
-          "fixed inset-0 z-50 bg-background/95 backdrop-blur-sm transition-opacity md:hidden",
-          mobileMenuOpen ? "opacity-100" : "pointer-events-none opacity-0"
-        )}
-        aria-hidden={!mobileMenuOpen}
-      >
-        <div className="flex min-h-screen flex-col">
-          <div className="flex h-16 items-center justify-between px-4 sm:px-6">
-            <span className="text-lg font-semibold text-foreground">
-              Frontend Digest
-            </span>
-            <button
-              type="button"
-              onClick={closeMobileMenu}
-              aria-label="Close menu"
-              className={cn(
-                "rounded-lg p-2 text-muted-foreground transition-colors",
-                "hover:bg-accent hover:text-accent-foreground"
-              )}
-            >
-              <X className="h-6 w-6" />
-            </button>
-          </div>
+      {/* Mobile menu overlay - portaled to body so it always stacks on top; fully opaque and distinct from page */}
+      {mounted &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            className={cn(
+              "fixed inset-0 z-[9999] transition-opacity md:hidden",
+              "bg-white ring-1 ring-inset ring-black/10",
+              "dark:bg-[hsl(240,10%,6%)] dark:ring-white/10", // opaque, slightly lighter than page in dark mode
+              mobileMenuOpen ? "opacity-100" : "pointer-events-none opacity-0"
+            )}
+            aria-hidden={!mobileMenuOpen}
+          >
+            <div className="flex min-h-screen flex-col">
+              <div className="flex h-16 items-center justify-between px-4 sm:px-6">
+                <span className="text-lg font-semibold text-foreground">
+                  Frontend Digest
+                </span>
+                <button
+                  type="button"
+                  onClick={closeMobileMenu}
+                  aria-label="Close menu"
+                  className={cn(
+                    "rounded-lg p-2 text-muted-foreground transition-colors",
+                    "hover:bg-accent hover:text-accent-foreground"
+                  )}
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
 
-          <div className="flex flex-1 flex-col items-center justify-center gap-8 px-4">
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                onClick={closeMobileMenu}
-                className="text-2xl font-medium text-foreground transition-colors hover:text-muted-foreground"
-              >
-                {link.label}
-              </Link>
-            ))}
-          </div>
-        </div>
-      </div>
+              <div className="flex flex-1 flex-col items-center justify-center gap-8 px-4">
+                {navLinks.map((link) => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    onClick={closeMobileMenu}
+                    className="text-2xl font-medium text-foreground transition-colors hover:text-muted-foreground"
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
     </header>
   );
 }
